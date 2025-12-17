@@ -1,6 +1,15 @@
 ```
 # Pleistocene_Human_Use_Of_Caves
 
+Created by: Iñaki Intxaurbe Alberdi
+Department of Graphic Design and Engineering Projects
+(Universidad del País Vasco/Euskal Herriko Unibertsitatea)
+PACEA UMR 5199
+(Université du Bordeaux)
+Date: 2025-10-07
+
+Copyright (C) 2025  Iñaki Intxaurbe
+
 This repository contains R scripts and data workflows developed to analyze the archaeological evidence of human use of caves during the Pleistocene. The project combines quantitative statistical methods, correspondence and multivariate analyses, and data visualization to explore relationships between cultural evidences, cave depth, and accessibility.
 
 ## Overview
