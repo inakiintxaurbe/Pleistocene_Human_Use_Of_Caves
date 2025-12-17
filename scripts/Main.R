@@ -11,6 +11,7 @@
 #   PACEA UMR 5199
 #   (Université du Bordeaux)
 #   Date: 2025-10-07
+#   Copyright (C) 2025  Iñaki Intxaurbe
 # ======================================================
 
 # ---- 1. INITIAL SETUP ----
