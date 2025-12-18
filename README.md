@@ -1,16 +1,27 @@
-```
+
 # Pleistocene_Human_Use_Of_Caves
 
-Created by: Iñaki Intxaurbe Alberdi
-Department of Graphic Design and Engineering Projects
-(Universidad del País Vasco/Euskal Herriko Unibertsitatea)
-PACEA UMR 5199
-(Université du Bordeaux)
-Date: 2025-10-07
+**Created by**: Iñaki Intxaurbe Alberdi
 
-Copyright (C) 2025  Iñaki Intxaurbe
+*Department of Graphic Design and Engineering Projects*
 
-This repository contains R scripts and data workflows developed to analyze the archaeological evidence of human use of caves during the Pleistocene. The project combines quantitative statistical methods, correspondence and multivariate analyses, and data visualization to explore relationships between cultural evidences, cave depth, and accessibility.
+*(Universidad del País Vasco/Euskal Herriko Unibertsitatea)*
+
+*PACEA UMR 5199*
+
+*(Université du Bordeaux)*
+
+**e-mail**: inaki.intxaurbe@ehu.eus; inaki.intxaurbe@u-bordeaux.fr; inaki.intxaurbe@gmail.com
+
+**ORDICD nº**: https://orcid.org/0000-0003-3643-3177
+
+**Date**: 2025-10-07
+
+*Copyright (C) 2025  Iñaki Intxaurbe*
+
+This repository contains R scripts and data workflows developed to analyze the archaeological evidence of human use of caves during the Pleistocene. 
+The project combines quantitative statistical methods, correspondence and multivariate analyses, and data visualization to explore relationships 
+between cultural evidences, cave depth, and accessibility.
 
 ## Overview
 
@@ -21,7 +32,7 @@ The main analysis script (`01_Full_Statistics.R`) processes a standardized archa
 - An Excel report summarizing all test results (`evidences_Tests.xlsx`)
 
 ## Folder Structure
-
+```
 Pleistocene_Human_Use_Of_Caves/
 │
 ├── 01_Full_Statistics.R # Main R analysis script
@@ -31,6 +42,7 @@ Pleistocene_Human_Use_Of_Caves/
 │ ├── Boxplot_* # Boxplots by region and phase
 │ └── Violin_* # Violin plots for depth distributions
 └── evidences_Tests.xlsx # Statistical output summary
+```
 
 ## Requirements
 
