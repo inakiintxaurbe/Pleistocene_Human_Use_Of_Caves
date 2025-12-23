@@ -2,7 +2,7 @@
 #                        MAIN RUNNER
 # ======================================================
 #   Executes both analytical pipelines:
-#     1. GIS + Bayesian Analysis
+#     1. Spatial + Chronological Analysis
 #     2. Full Statistical Analysis
 #
 #   Author: Iñaki Intxaurbe Alberdi 
