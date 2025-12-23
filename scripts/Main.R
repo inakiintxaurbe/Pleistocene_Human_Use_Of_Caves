@@ -14,7 +14,8 @@
 #   Copyright (C) 2025  Iñaki Intxaurbe
 # ======================================================
 
-# ---- 1. INITIAL SETUP ----
+# 1. INITIAL SETUP -------------------------------------
+
 base_dir     <- dirname(getwd())  
 data_dir     <- file.path(base_dir, "data")
 scripts_dir  <- file.path(base_dir, "scripts")
@@ -23,7 +24,8 @@ outputs_dir  <- file.path(base_dir, "outputs")
 # Create outputs directory if it doesn't exist
 if (!dir.exists(outputs_dir)) dir.create(outputs_dir, recursive = TRUE)
 
-# ---- 2. CHECK DATA FILE ----
+# 2. CHECK DATA FILE ------------------------------------
+
 data_file <- file.path(data_dir, "Table-Data-Base.xlsx")
 if (!file.exists(data_file)) {
   stop("'Table-Data-Base.xlsx' not found in the /data/ folder. 
@@ -32,8 +34,9 @@ if (!file.exists(data_file)) {
   message(" Data file found at: ", data_file)
 }
 
-# ---- 3. FUNCTION TO RUN SCRIPTS ----
+# 3. FUNCTION TO RUN SCRIPTS ----------------------------
 # Each script runs with working directory = /outputs/
+
 run_script <- function(script_name, data_path, outputs_dir) {
   script_path <- file.path(scripts_dir, script_name)
   message("\n Running ", script_name, " ...")
@@ -58,11 +61,13 @@ run_script <- function(script_name, data_path, outputs_dir) {
   })
 }
 
-# ---- 4. EXECUTE SCRIPTS IN ORDER ----
+# 4. EXECUTE SCRIPTS IN ORDER ---------------------------
+
 run_script("00_GIS_and_Datings.R", data_file, outputs_dir)
 run_script("01_Full_Statistics.R", data_file, outputs_dir)
 
-# ---- 5. FINAL MESSAGE ----
+# 5. FINAL MESSAGE --------------------------------------
+
 message("\n ALL ANALYSES COMPLETED SUCCESSFULLY")
 message("Results have been saved in the /outputs/ folder:")
 message(" - 'Datings_results.xlsx' + GIS and Bayesian plots")
