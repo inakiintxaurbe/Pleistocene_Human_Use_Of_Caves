@@ -459,248 +459,249 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
     
     make_world_approved_caves(df_caves)
 
-# ---------- 1c) WORLD MAPS BY PHASE (APPROVED == YES & CLEAN ROMAN PHASES) ----------
+    # 1c) WORLD MAPS BY PHASE (APPROVED == YES & CLEAN ROMAN PHASES) / MUNDU MAPA FASEKA (ONARTURIKOAK ETA GARBITURIKO ERROMATAR ZKIAK)
+    
+    make_world_approved_by_phase <- function(df) {
+      df_yes <- df %>% dplyr::filter(tolower(Approved) == "yes")
+      
+      # Filter only Approved == yes and clean phases (I, II, ... X)
+      df_yes_clean <- df_yes %>%
+        dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
+      
+      # Roman numerals to integers converter
+      roman2int <- function(x) as.numeric(as.roman(x))
+      
+      fases <- unique(df_yes_clean$Phase)
+      fases <- fases[order(roman2int(fases))]   
+      
+      for (ph in fases) {
+        sub <- df_yes_clean %>% dplyr::filter(Phase == ph)
+        sub$longitude <- ((sub$longitude + 180) %% 360) - 180
+        
+        caves_ll <- st_as_sf(sub, coords = c("longitude","latitude"), crs = 4326, remove = FALSE)
+        world_ll <- rnaturalearth::ne_countries(scale = 110, returnclass = "sf")
+        world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
+        
+        p_world <- ggplot() +
+          geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+          geom_sf(data = caves_ll, color = "red", size = 2, alpha = 0.85) +
+          coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +
+          theme_minimal(base_size = 11) +
+          labs(title = paste("Approved caves - Phase", ph),
+               x = "Longitude", y = "Latitude")
+        
+        # Numerical phase for order
+        ph_num <- roman2int(ph)
+        
+        ggsave(file.path(world_dir, sprintf("%02d_World_Approved_Phase_%s.png", ph_num, ph)),
+               p_world, width = 12, height = 7, dpi = 300)
+      }
+    }
+    
+    make_world_approved_by_phase(df_caves)
 
-make_world_approved_by_phase <- function(df) {
-  df_yes <- df %>% dplyr::filter(tolower(Approved) == "yes")
-  
-  # Filter only Approved == yes and clean phases (I, II, ... X)
-  df_yes_clean <- df_yes %>%
-    dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
-  
-  # Roman numerals to integers converter
-  roman2int <- function(x) as.numeric(as.roman(x))
-  
-  fases <- unique(df_yes_clean$Phase)
-  fases <- fases[order(roman2int(fases))]   
-  
-  for (ph in fases) {
-    sub <- df_yes_clean %>% dplyr::filter(Phase == ph)
-    sub$longitude <- ((sub$longitude + 180) %% 360) - 180
+    # 2) KDE IN EUROPE (BAYESIAN CAVES ONLY, PER PHASE) / KERNEL DENTSITATE ESTIMAZIOA EUROPAN (BAYESIAN / MONTE-CARLO KOBAK BAKARRIK FASEKA)
+    # Build the list of Bayesian caves (Cave+Phase present in Datings_results.xlsx)
+    df_bayes <- read_excel("Datings_results.xlsx", sheet = "Datings_combined") %>%
+      dplyr::distinct(Cave, Phase, .keep_all = TRUE)
     
-    caves_ll <- st_as_sf(sub, coords = c("longitude","latitude"), crs = 4326, remove = FALSE)
-    world_ll <- rnaturalearth::ne_countries(scale = 110, returnclass = "sf")
-    world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
+    df_bayes_caves <- df_caves %>%
+      dplyr::inner_join(df_bayes %>% dplyr::select(Cave, Phase), by = c("Cave","Phase"))
     
-    p_world <- ggplot() +
-      geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
-      geom_sf(data = caves_ll, color = "red", size = 2, alpha = 0.85) +
-      coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +
-      theme_minimal(base_size = 11) +
-      labs(title = paste("Approved caves - Phase", ph),
-           x = "Longitude", y = "Latitude")
+    make_bayes_kernels_europe <- function(df_bayes,
+                                          grid_n = 280,
+                                          base_gamma = 3,
+                                          base_cutoff = 0.10) {
+      
+      # Roman numeral to integer converter / Zenbaki erromatarretik osoko bihurgailura
+      roman2int <- function(x) {
+        romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
+        match(x, romans)  # devuelve índice 1–10 si está en la lista
+      }
+      
+      # Data and base map / Datuak eta base mapa
+      caves_ll <- sf::st_as_sf(df_bayes, coords = c("longitude","latitude"),
+                               crs = 4326, remove = FALSE)
+      
+      world_ll <- rnaturalearth::ne_countries(scale = 50, returnclass = "sf")
+      world_ll <- suppressWarnings(sf::st_make_valid(world_ll))
+      world_eu <- sf::st_transform(world_ll, 3035)
+      caves_eu <- sf::st_transform(caves_ll, 3035)
+      
+      # Robust KDE helper / KDE sendoen laguntzailea
+      kde_df <- function(x, y, n = grid_n, gamma = base_gamma, cutoff = base_cutoff) {
+        if (length(x) < 3L) return(NULL)
+        
+        rx <- range(x); ry <- range(y)
+        ex <- diff(rx); ey <- diff(ry)
+        
+        hx <- max(ex * 0.18, 15000)
+        hy <- max(ey * 0.18, 15000)
+        
+        if (ex < 100) x <- x + rnorm(length(x), sd = 50)
+        if (ey < 100) y <- y + rnorm(length(y), sd = 50)
+        
+        lims <- c(rx[1] - ex*0.12, rx[2] + ex*0.12,
+                  ry[1] - ey*0.12, ry[2] + ey*0.12)
+        
+        zz <- MASS::kde2d(x, y, h = c(hx, hy), n = n, lims = lims)
+        dens <- as.vector(zz$z)
+        
+        rng <- range(dens, na.rm = TRUE)
+        if (!is.finite(rng[1]) || !is.finite(rng[2]) || diff(rng) == 0) return(NULL)
+        
+        dens <- (dens - rng[1]) / diff(rng)
+        dens <- dens^gamma
+        dens[dens < cutoff] <- NA
+        
+        df <- expand.grid(X = zz$x, Y = zz$y)
+        df$dens <- dens
+        df
+      }
+      
+      eu_xlim <- c(2500000, 6500000)
+      eu_ylim <- c(1400000, 5500000)
+      
+      # Loop per phase / Loop faseka
+      fases <- sort(unique(df_bayes$Phase), 
+                    na.last = TRUE,
+                    method = "shell")
+      
+      for (ph in fases) {
+        sub_eu <- caves_eu %>% dplyr::filter(Phase == ph)
+        xy_eu  <- as.data.frame(sf::st_coordinates(sub_eu))
+        if (nrow(xy_eu) > 0) names(xy_eu) <- c("X","Y")
+        
+        n_pts <- nrow(xy_eu)
+        gamma  <- if (n_pts <= 5) 2 else base_gamma
+        cutoff <- if (n_pts <= 5) 0.05 else base_cutoff
+        
+        kd_eu <- if (n_pts >= 3) kde_df(xy_eu$X, xy_eu$Y, gamma = gamma, cutoff = cutoff) else NULL
+        
+        p_eu <- ggplot() +
+          geom_sf(data = world_eu, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+          { if (!is.null(kd_eu))
+            geom_raster(data = kd_eu, aes(X, Y, fill = dens),
+                        alpha = 0.95, interpolate = TRUE) } +
+          scale_fill_viridis_c(option = "plasma", na.value = NA,
+                               name = "Relative density") +
+          geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
+          coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
+          theme_minimal(base_size = 11) +
+          labs(title = paste("Bayesian caves - Phase", ph, "(Europe, EPSG:3035)"),
+               x = "X (m)", y = "Y (m)")
+        
+        # Roman numeral to integer for ordering / Zenbaki erromatarretatik osoetara bihurketa ordenatzeko
+        ph_num <- roman2int(ph)
+        if (is.na(ph_num)) ph_num <- 99 
+        
+        # Save files ordered according to their phase / Datuak faseen arabera gorde
+        ggsave(file.path(eu_dir, sprintf("%02d_Phase_%s_Europe.png", ph_num, ph)),
+               p_eu, width = 8, height = 6, dpi = 300, device = "png")
+        Sys.sleep(0.1)
+      }
+    }
     
-    # Numerical phase for order
-    ph_num <- roman2int(ph)
-    
-    ggsave(file.path(world_dir, sprintf("%02d_World_Approved_Phase_%s.png", ph_num, ph)),
-           p_world, width = 12, height = 7, dpi = 300)
-  }
-}
+    make_bayes_kernels_europe(df_bayes_caves)
 
-make_world_approved_by_phase(df_caves)
+    # 3) KDE IN EUROPE (APPROVED == YES & CLEAN ROMAN PHASES, NOT ONLY MONTE-CARLO/BAYESIAN) 
+    # 3) KDE EUROPAN (ONARTUAK ETA GARBITURIKO ERROMTARAK FASEAK, EZ BAKARRIK MONTE-CARLO/BAYESIARRAK)
+    
+    make_approved_kernels_europe <- function(df_caves,
+                                             grid_n = 280,
+                                             base_gamma = 3,
+                                             base_cutoff = 0.10) {
+      
+      # Filter only Approved == yes and clean phases (I, II, ... X) / Filtratu onartuak eta fase garbituak
+      df_yes_clean <- df_caves %>%
+        dplyr::filter(tolower(Approved) == "yes") %>%
+        dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
+      
+      if (nrow(df_yes_clean) == 0) {
+        message("No Approved caves with clean Roman phases found")
+        return(NULL)
+      }
+      
+      # Roman numerals to integers converter / Erromatar zki-etatik osoetara bihurketa
+      roman2int <- function(x) {
+        romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
+        match(x, romans)
+      }
+      
+      # Data and base map / Datuak eta base mapa
+      caves_ll <- sf::st_as_sf(df_yes_clean, coords = c("longitude","latitude"),
+                               crs = 4326, remove = FALSE)
+      
+      world_ll <- rnaturalearth::ne_countries(scale = 50, returnclass = "sf")
+      world_ll <- suppressWarnings(sf::st_make_valid(world_ll))
+      world_eu <- sf::st_transform(world_ll, 3035)
+      caves_eu <- sf::st_transform(caves_ll, 3035)
+      
+      # Helper KDE / KDE laguntzailea
+      kde_df <- function(x, y, n = grid_n, gamma = base_gamma, cutoff = base_cutoff) {
+        if (length(x) < 3L) return(NULL)
+        rx <- range(x); ry <- range(y)
+        ex <- diff(rx); ey <- diff(ry)
+        hx <- max(ex * 0.18, 15000)
+        hy <- max(ey * 0.18, 15000)
+        if (ex < 100) x <- x + rnorm(length(x), sd = 50)
+        if (ey < 100) y <- y + rnorm(length(y), sd = 50)
+        lims <- c(rx[1] - ex*0.12, rx[2] + ex*0.12,
+                  ry[1] - ey*0.12, ry[2] + ey*0.12)
+        zz <- MASS::kde2d(x, y, h = c(hx, hy), n = n, lims = lims)
+        dens <- as.vector(zz$z)
+        rng <- range(dens, na.rm = TRUE)
+        if (!is.finite(rng[1]) || !is.finite(rng[2]) || diff(rng) == 0) return(NULL)
+        dens <- (dens - rng[1]) / diff(rng)
+        dens <- dens^gamma
+        dens[dens < cutoff] <- NA
+        df <- expand.grid(X = zz$x, Y = zz$y)
+        df$dens <- dens
+        df
+      }
+      
+      eu_xlim <- c(2500000, 6500000)
+      eu_ylim <- c(1400000, 5500000)
+      
+      # Loop per phase / Loop-ak faseka
+      fases <- unique(df_yes_clean$Phase)
+      fases <- fases[order(roman2int(fases))]
+      
+      for (ph in fases) {
+        sub_eu <- caves_eu %>% dplyr::filter(Phase == ph)
+        xy_eu  <- as.data.frame(sf::st_coordinates(sub_eu))
+        if (nrow(xy_eu) > 0) names(xy_eu) <- c("X","Y")
+        
+        n_pts <- nrow(xy_eu)
+        gamma  <- if (n_pts <= 5) 2 else base_gamma
+        cutoff <- if (n_pts <= 5) 0.05 else base_cutoff
+        
+        kd_eu <- if (n_pts >= 3) kde_df(xy_eu$X, xy_eu$Y,
+                                        gamma = gamma, cutoff = cutoff) else NULL
+        
+        p_eu <- ggplot() +
+          geom_sf(data = world_eu, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+          { if (!is.null(kd_eu))
+            geom_raster(data = kd_eu, aes(X, Y, fill = dens),
+                        alpha = 0.95, interpolate = TRUE) } +
+          scale_fill_viridis_c(option = "magma", na.value = NA, name = "Relative density") +
+          geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
+          coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
+          theme_minimal(base_size = 11) +
+          labs(title = paste("Approved caves - Phase", ph, "(Europe, EPSG:3035)"),
+               x = "X (m)", y = "Y (m)")
+        
+        ph_num <- roman2int(ph)
+        if (is.na(ph_num)) ph_num <- 99
+        
+        ggsave(file.path(eu_dir, sprintf("%02d_Approved_Phase_%s_Europe.png", ph_num, ph)),
+               p_eu, width = 8, height = 6, dpi = 300, device = "png")
+        Sys.sleep(0.1)
+      }
+    }
 
-# ---------- 2) KDE IN EUROPE (BAYESIAN CAVES ONLY, PER PHASE) ----------
-# Build the list of Bayesian caves (Cave+Phase present in Datings_results.xlsx)
-df_bayes <- read_excel("Datings_results.xlsx", sheet = "Datings_combined") %>%
-  dplyr::distinct(Cave, Phase, .keep_all = TRUE)
+                    
+# Execute / Burutu ----------------------------------------------------
 
-df_bayes_caves <- df_caves %>%
-  dplyr::inner_join(df_bayes %>% dplyr::select(Cave, Phase), by = c("Cave","Phase"))
-
-make_bayes_kernels_europe <- function(df_bayes,
-                                      grid_n = 280,
-                                      base_gamma = 3,
-                                      base_cutoff = 0.10) {
-  
-  # --- Roman numeral to integer converter ---
-  roman2int <- function(x) {
-    romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
-    match(x, romans)  # devuelve índice 1–10 si está en la lista
-  }
-  
-  # --- Data and base map ---
-  caves_ll <- sf::st_as_sf(df_bayes, coords = c("longitude","latitude"),
-                           crs = 4326, remove = FALSE)
-  
-  world_ll <- rnaturalearth::ne_countries(scale = 50, returnclass = "sf")
-  world_ll <- suppressWarnings(sf::st_make_valid(world_ll))
-  world_eu <- sf::st_transform(world_ll, 3035)
-  caves_eu <- sf::st_transform(caves_ll, 3035)
-  
-  # --- Robust KDE helper ---
-  kde_df <- function(x, y, n = grid_n, gamma = base_gamma, cutoff = base_cutoff) {
-    if (length(x) < 3L) return(NULL)
-    
-    rx <- range(x); ry <- range(y)
-    ex <- diff(rx); ey <- diff(ry)
-    
-    hx <- max(ex * 0.18, 15000)
-    hy <- max(ey * 0.18, 15000)
-    
-    if (ex < 100) x <- x + rnorm(length(x), sd = 50)
-    if (ey < 100) y <- y + rnorm(length(y), sd = 50)
-    
-    lims <- c(rx[1] - ex*0.12, rx[2] + ex*0.12,
-              ry[1] - ey*0.12, ry[2] + ey*0.12)
-    
-    zz <- MASS::kde2d(x, y, h = c(hx, hy), n = n, lims = lims)
-    dens <- as.vector(zz$z)
-    
-    rng <- range(dens, na.rm = TRUE)
-    if (!is.finite(rng[1]) || !is.finite(rng[2]) || diff(rng) == 0) return(NULL)
-    
-    dens <- (dens - rng[1]) / diff(rng)
-    dens <- dens^gamma
-    dens[dens < cutoff] <- NA
-    
-    df <- expand.grid(X = zz$x, Y = zz$y)
-    df$dens <- dens
-    df
-  }
-  
-  eu_xlim <- c(2500000, 6500000)
-  eu_ylim <- c(1400000, 5500000)
-  
-  # --- Loop per phase ---
-  fases <- sort(unique(df_bayes$Phase), 
-                na.last = TRUE,
-                method = "shell")
-  
-  for (ph in fases) {
-    sub_eu <- caves_eu %>% dplyr::filter(Phase == ph)
-    xy_eu  <- as.data.frame(sf::st_coordinates(sub_eu))
-    if (nrow(xy_eu) > 0) names(xy_eu) <- c("X","Y")
-    
-    n_pts <- nrow(xy_eu)
-    gamma  <- if (n_pts <= 5) 2 else base_gamma
-    cutoff <- if (n_pts <= 5) 0.05 else base_cutoff
-    
-    kd_eu <- if (n_pts >= 3) kde_df(xy_eu$X, xy_eu$Y, gamma = gamma, cutoff = cutoff) else NULL
-    
-    p_eu <- ggplot() +
-      geom_sf(data = world_eu, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
-      { if (!is.null(kd_eu))
-        geom_raster(data = kd_eu, aes(X, Y, fill = dens),
-                    alpha = 0.95, interpolate = TRUE) } +
-      scale_fill_viridis_c(option = "plasma", na.value = NA,
-                           name = "Relative density") +
-      geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
-      coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
-      theme_minimal(base_size = 11) +
-      labs(title = paste("Bayesian caves - Phase", ph, "(Europe, EPSG:3035)"),
-           x = "X (m)", y = "Y (m)")
-    
-    # --- Roman numeral to integer for ordering ---
-    ph_num <- roman2int(ph)
-    if (is.na(ph_num)) ph_num <- 99 
-    
-    # --- Save files ordered according to their phase ---
-    ggsave(file.path(eu_dir, sprintf("%02d_Phase_%s_Europe.png", ph_num, ph)),
-           p_eu, width = 8, height = 6, dpi = 300, device = "png")
-    Sys.sleep(0.1)
-  }
-}
-
-make_bayes_kernels_europe(df_bayes_caves)
-
-# ---------- 3) KDE IN EUROPE (APPROVED == YES & CLEAN ROMAN PHASES) ----------
-
-make_approved_kernels_europe <- function(df_caves,
-                                         grid_n = 280,
-                                         base_gamma = 3,
-                                         base_cutoff = 0.10) {
-  
-  # Filter only Approved == yes and clean phases (I, II, ... X)
-  df_yes_clean <- df_caves %>%
-    dplyr::filter(tolower(Approved) == "yes") %>%
-    dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
-  
-  if (nrow(df_yes_clean) == 0) {
-    message("No Approved caves with clean Roman phases found")
-    return(NULL)
-  }
-  
-  # --- Roman numerals to integers converter
-  roman2int <- function(x) {
-    romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
-    match(x, romans)
-  }
-  
-  # --- Data and base map ---
-  caves_ll <- sf::st_as_sf(df_yes_clean, coords = c("longitude","latitude"),
-                           crs = 4326, remove = FALSE)
-  
-  world_ll <- rnaturalearth::ne_countries(scale = 50, returnclass = "sf")
-  world_ll <- suppressWarnings(sf::st_make_valid(world_ll))
-  world_eu <- sf::st_transform(world_ll, 3035)
-  caves_eu <- sf::st_transform(caves_ll, 3035)
-  
-  # --- Helper KDE ---
-  kde_df <- function(x, y, n = grid_n, gamma = base_gamma, cutoff = base_cutoff) {
-    if (length(x) < 3L) return(NULL)
-    rx <- range(x); ry <- range(y)
-    ex <- diff(rx); ey <- diff(ry)
-    hx <- max(ex * 0.18, 15000)
-    hy <- max(ey * 0.18, 15000)
-    if (ex < 100) x <- x + rnorm(length(x), sd = 50)
-    if (ey < 100) y <- y + rnorm(length(y), sd = 50)
-    lims <- c(rx[1] - ex*0.12, rx[2] + ex*0.12,
-              ry[1] - ey*0.12, ry[2] + ey*0.12)
-    zz <- MASS::kde2d(x, y, h = c(hx, hy), n = n, lims = lims)
-    dens <- as.vector(zz$z)
-    rng <- range(dens, na.rm = TRUE)
-    if (!is.finite(rng[1]) || !is.finite(rng[2]) || diff(rng) == 0) return(NULL)
-    dens <- (dens - rng[1]) / diff(rng)
-    dens <- dens^gamma
-    dens[dens < cutoff] <- NA
-    df <- expand.grid(X = zz$x, Y = zz$y)
-    df$dens <- dens
-    df
-  }
-  
-  eu_xlim <- c(2500000, 6500000)
-  eu_ylim <- c(1400000, 5500000)
-  
-  # --- Loop per phase ---
-  fases <- unique(df_yes_clean$Phase)
-  fases <- fases[order(roman2int(fases))]
-  
-  for (ph in fases) {
-    sub_eu <- caves_eu %>% dplyr::filter(Phase == ph)
-    xy_eu  <- as.data.frame(sf::st_coordinates(sub_eu))
-    if (nrow(xy_eu) > 0) names(xy_eu) <- c("X","Y")
-    
-    n_pts <- nrow(xy_eu)
-    gamma  <- if (n_pts <= 5) 2 else base_gamma
-    cutoff <- if (n_pts <= 5) 0.05 else base_cutoff
-    
-    kd_eu <- if (n_pts >= 3) kde_df(xy_eu$X, xy_eu$Y,
-                                    gamma = gamma, cutoff = cutoff) else NULL
-    
-    p_eu <- ggplot() +
-      geom_sf(data = world_eu, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
-      { if (!is.null(kd_eu))
-        geom_raster(data = kd_eu, aes(X, Y, fill = dens),
-                    alpha = 0.95, interpolate = TRUE) } +
-      scale_fill_viridis_c(option = "magma", na.value = NA, name = "Relative density") +
-      geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
-      coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
-      theme_minimal(base_size = 11) +
-      labs(title = paste("Approved caves - Phase", ph, "(Europe, EPSG:3035)"),
-           x = "X (m)", y = "Y (m)")
-    
-    ph_num <- roman2int(ph)
-    if (is.na(ph_num)) ph_num <- 99
-    
-    ggsave(file.path(eu_dir, sprintf("%02d_Approved_Phase_%s_Europe.png", ph_num, ph)),
-           p_eu, width = 8, height = 6, dpi = 300, device = "png")
-    Sys.sleep(0.1)
-  }
-}
-
-# ======================================================
-#                     EXECUTE
-# ======================================================
 make_approved_kernels_europe(df_caves)
 message("Done: 'Dating_results.xlsx' + plots in folders 'GIS_Results/' and 'Plot_Results/'.")
