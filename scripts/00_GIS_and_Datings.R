@@ -1,8 +1,17 @@
 # ======================================================
-#             FULL GIS AND BAYESSIAN ANALYSIS 
+#             SPATIAL AND CHRONOLOGICAL ANALYSIS 
+# ======================================================
+#   Author: Iñaki Intxaurbe Alberdi 
+#   Department of Graphic Design and Engineering Projects
+#   (Universidad del País Vasco/Euskal Herriko Unibertsitatea)
+#   PACEA UMR 5199
+#   (Université du Bordeaux)
+#   Date: 2025-10-07
+#   Copyright (C) 2025  Iñaki Intxaurbe
 # ======================================================
 
-# ---- PACKAGES ----
+# Install packages / Paketiak instalatu -------------------
+
 packages <- c(
   "readxl","dplyr","Bchron","HDInterval","truncnorm","tidyr","purrr",
   "openxlsx","stringr","ggplot2","sf","maps","viridis","rnaturalearth",
@@ -11,7 +20,6 @@ packages <- c(
 installed <- rownames(installed.packages())
 for (p in packages) if (!(p %in% installed)) install.packages(p)
 
-# ---- install packages ----
 suppressPackageStartupMessages({
   library(readxl); library(dplyr); library(Bchron); library(HDInterval)
   library(truncnorm); library(tidyr); library(purrr); library(openxlsx)
@@ -20,9 +28,9 @@ suppressPackageStartupMessages({
   library(MASS)
 })
 
-# ======================================================
-#                  HELPERS / CONSTANTS
-# ======================================================
+
+# Helpers / Laguntzailiak---------------------------------
+
 hpd_from_draws_df <- function(draws, cred=0.95) {
   hp <- HDInterval::hdi(draws, credMass=cred)
   data.frame(from=min(hp), to=max(hp))
@@ -78,9 +86,9 @@ best_phase_interval_from_pairs <- function(df_phase, max_width=10000, k=2) {
 
 round0 <- function(x) round(x, 0)
 
-# ======================================================
-#                       READ DATA
-# ======================================================
+
+# Read data / Datuak leiru ------------------------------
+
 file_path <- if (exists("data_path")) data_path else file.path(getwd(), "Table-Data-Base.xlsx")
 dat <- read_excel(file_path, sheet = "Datings")
 
@@ -109,9 +117,9 @@ dat$AQ_PQ_clean[!dat$AQ_PQ_clean %in% c("AQ","PQ","ER")] <- NA
 is_c14 <- grepl("C\\s*14\\s*AMS", dat$Method, ignore.case = TRUE)
 is_uth <- grepl("U\\s*-?\\s*/?\\s*Th", dat$Method, ignore.case = TRUE)
 
-# ======================================================
-#                       C14 AMS
-# ======================================================
+
+# C14 AMS --------------------------------------------------
+
 c14 <- dat %>%
   dplyr::filter(is_c14, !is.na(Result), !is.na(Error_sd)) %>%
   dplyr::mutate(
@@ -147,9 +155,9 @@ samplers_c14 <- purrr::map2(bc, seq_len(nrow(c14)), function(cal, i) {
   function(n) sample(adj$age, size = n, replace = TRUE, prob = adj$dens)
 })
 
-# ======================================================
-#                         U/Th
-# ======================================================
+
+# U/Th -----------------------------------------------------
+
 uth_raw <- dat %>%
   dplyr::filter(is_uth, !is.na(Result), !is.na(Error_plus) | !is.na(Error_minus)) %>%
   dplyr::mutate(
@@ -191,16 +199,16 @@ if (nrow(uth) > 0) {
   names(samplers_uth) <- uth$UniqueID
 }
 
-# ======================================================
-#             ANALYSIS MONTE CARLO (BAYESSIAN)
-# ======================================================
+
+# Monte Carlo analysis -----------------------------
+
 N <- 5000
 draws_c14 <- lapply(samplers_c14, function(f) f(N)); names(draws_c14) <- c14$UniqueID
 draws_uth <- lapply(samplers_uth, function(f) f(N)); names(draws_uth) <- uth$UniqueID
 
-# ======================================================
-#                       OUTPUTS
-# ======================================================
+
+# Outputak / Emaitzak -------------------------------
+
 hpd68_c14 <- lapply(draws_c14, hpd_from_draws_df, cred=0.68) %>% bind_rows()
 hpd95_c14 <- lapply(draws_c14, hpd_from_draws_df, cred=0.95) %>% bind_rows()
 c14_out <- c14 %>% dplyr::mutate(
@@ -275,14 +283,13 @@ all_out$Prob_in_Phase <- sapply(seq_len(nrow(all_out)), function(i){
   mean(d >= pb$start & d <= pb$end)
 })
 
-# ---- Reorder phases in tables by Roman numeral ----
+# Reorder phases in tables by Roman numeral / Faseak zenbakizko taula erromatarretan berrantolatzea ----
 roman2int <- function(x) {
   x_clean <- gsub("Phase\\s*", "", trimws(x))
   romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
   match(x_clean, romans)
 }
 
-# Reorder tables by Roman numeral
 c14_out <- c14_out %>%
   dplyr::mutate(order_num = roman2int(Phase)) %>%
   dplyr::arrange(order_num) %>%
@@ -310,12 +317,11 @@ phase_summary_all <- phase_summary_all %>%
   dplyr::arrange(order_num) %>%
   dplyr::select(-order_num)
 
-# Vector with correct order
 phase_ordered <- phase_summary_all$phase
 
-# ======================================================
-#                        EXCEL
-# ======================================================
+
+# Crearte Excel File / Excel dokumentua sortu -----------------
+
 wb <- createWorkbook()
 addWorksheet(wb, "Datings_C14_only")
 addWorksheet(wb, "Phase_bounds_C14_only")
@@ -332,72 +338,73 @@ writeData(wb, "PQ_AQ_log", pqaq_log_df)
 saveWorkbook(wb, "Datings_results.xlsx", overwrite = TRUE)
 message("Datings_results.xlsx saved")
 
-# ======================================================
-#                        GRAPHS
-# ======================================================
+
+# Create graphs / Grafikoak sortu ------------------------
+
 outdir <- file.path(getwd(), "Plots_results")
 if (!dir.exists(outdir)) dir.create(outdir)
 
-# ---- 1. Densities per phase (in Roman numerals) ----
-pdf(file.path(outdir, "Phase_densities.pdf"), width=8, height=6)
-
-for (ph in phase_ordered) {
-  sub <- phase_bounds_all %>% filter(phase == ph)
-  if (nrow(sub) == 0) next
+  # 1. Densities per phase (in Roman numerals) / Dentsitateak faseka (zenbaki erromatarretan)
   
-  g1 <- ggplot(sub, aes(x = start)) +
-    geom_density(fill = "skyblue", alpha = 0.5) +
-    geom_vline(xintercept = HDInterval::hdi(sub$start, credMass = 0.95),
-               color = "blue", linetype = "dashed") +
-    labs(title = paste("Start of phase -", ph),
-         x = "Cal BP", y = "Density")
-  print(g1)
+  pdf(file.path(outdir, "Phase_densities.pdf"), width=8, height=6)
   
-  g2 <- ggplot(sub, aes(x = end)) +
-    geom_density(fill = "salmon", alpha = 0.5) +
-    geom_vline(xintercept = HDInterval::hdi(sub$end, credMass = 0.95),
-               color = "red", linetype = "dashed") +
-    labs(title = paste("End of phase -", ph),
-         x = "Cal BP", y = "Density")
-  print(g2)
-}
-dev.off()
+  for (ph in phase_ordered) {
+    sub <- phase_bounds_all %>% filter(phase == ph)
+    if (nrow(sub) == 0) next
+    
+    g1 <- ggplot(sub, aes(x = start)) +
+      geom_density(fill = "skyblue", alpha = 0.5) +
+      geom_vline(xintercept = HDInterval::hdi(sub$start, credMass = 0.95),
+                 color = "blue", linetype = "dashed") +
+      labs(title = paste("Start of phase -", ph),
+           x = "Cal BP", y = "Density")
+    print(g1)
+    
+    g2 <- ggplot(sub, aes(x = end)) +
+      geom_density(fill = "salmon", alpha = 0.5) +
+      geom_vline(xintercept = HDInterval::hdi(sub$end, credMass = 0.95),
+                 color = "red", linetype = "dashed") +
+      labs(title = paste("End of phase -", ph),
+           x = "Cal BP", y = "Density")
+    print(g2)
+  }
+  dev.off()
 
-# ---- 2. Summary (in Roman numerals) ----
-pdf(file.path(outdir, "Phase_summary.pdf"), width=9, height=6)
-
-# conversion to factor with correct order
-phase_summary_all$phase <- factor(
-  phase_summary_all$phase,
-  levels = phase_ordered
-)
-
-ggplot(phase_summary_all, aes(y = phase)) +
-  geom_errorbarh(aes(xmin = start_95_from, xmax = start_95_to),
-                 height = 0.25, color = "blue", size = 1.2) +
-  geom_errorbarh(aes(xmin = end_95_from, xmax = end_95_to),
-                 height = 0.25, color = "red", size = 1.2) +
-  labs(title = "95% intervals for start (blue) and end (red) per phase",
-       x = "Cal BP", y = "Phase") +
-  theme_minimal(base_size = 13)
-print(last_plot())
+  # 2. Summary (in Roman numerals) / Laburpena (Zenbaki erromatarretan) 
+  pdf(file.path(outdir, "Phase_summary.pdf"), width=9, height=6)
+  
+  # conversion to factor with correct order
+  phase_summary_all$phase <- factor(
+    phase_summary_all$phase,
+    levels = phase_ordered
+  )
+  
+  ggplot(phase_summary_all, aes(y = phase)) +
+    geom_errorbarh(aes(xmin = start_95_from, xmax = start_95_to),
+                   height = 0.25, color = "blue", size = 1.2) +
+    geom_errorbarh(aes(xmin = end_95_from, xmax = end_95_to),
+                   height = 0.25, color = "red", size = 1.2) +
+    labs(title = "95% intervals for start (blue) and end (red) per phase",
+         x = "Cal BP", y = "Phase") +
+    theme_minimal(base_size = 13)
+  print(last_plot())
 
 dev.off()
 
 message("Graphs saved in the 'Plots_results' folder")
 
-# ======================================================
-#                     GIS ANALYSES
-# ======================================================
-# ---- GIS & Kernel Analysis (per-phase maps with basemap) ----
 
-# Read all caves from the database
+#  Spatial analyses / Analisi espazialak ---------------------
+# GIS & Kernel Analysis 
+  # (per-phase maps with basemap) / (fase-bakotxeko mapak basemapekin)
+
+# Read all caves from the database / koba guztiak leiru databasetik
 df_caves <- read_excel(file_path, sheet = "Caves")
 df_caves$latitude  <- as.numeric(df_caves$latitude)
 df_caves$longitude <- as.numeric(df_caves$longitude)
 df_caves <- df_caves[!is.na(df_caves$latitude) & !is.na(df_caves$longitude), ]
 
-# Output dir for maps
+# Output dir for maps / Direktorioa mapentzako
 gisdir    <- file.path(getwd(), "GIS_results")
 world_dir <- file.path(gisdir, "Worldmaps")
 eu_dir    <- file.path(gisdir, "European_Kernel_Densities")
@@ -405,52 +412,52 @@ eu_dir    <- file.path(gisdir, "European_Kernel_Densities")
 dir.create(world_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
 
-# ---------- 1a) WORLD MAP (ALL CAVES, NO KERNEL) ----------
+    # 1a) WORLD MAP (ALL CAVES, NO KERNEL) / MUNDU MAPA (KOBA DANAK; EZ KERNEL)
+    
+    make_world_all_caves <- function(df) {
+      df$longitude <- ((df$longitude + 180) %% 360) - 180
+      
+      caves_ll <- st_as_sf(df, coords = c("longitude","latitude"), crs = 4326, remove = FALSE)
+      world_ll <- rnaturalearth::ne_countries(scale = 110, returnclass = "sf")
+      world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
+      
+      p_world <- ggplot() +
+        geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+        geom_sf(data = caves_ll, color = "black", size = 2, alpha = 0.85) +
+        coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +   
+        theme_minimal(base_size = 11) +
+        labs(title = "World distribution of all caves",
+             x = "Longitude", y = "Latitude")
+      
+      ggsave(file.path(world_dir, "World_All_Caves.png"),
+             p_world, width = 12, height = 7, dpi = 300)
+    }
+    
+    make_world_all_caves(df_caves)
 
-make_world_all_caves <- function(df) {
-  df$longitude <- ((df$longitude + 180) %% 360) - 180
-  
-  caves_ll <- st_as_sf(df, coords = c("longitude","latitude"), crs = 4326, remove = FALSE)
-  world_ll <- rnaturalearth::ne_countries(scale = 110, returnclass = "sf")
-  world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
-  
-  p_world <- ggplot() +
-    geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
-    geom_sf(data = caves_ll, color = "black", size = 2, alpha = 0.85) +
-    coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +   
-    theme_minimal(base_size = 11) +
-    labs(title = "World distribution of all caves",
-         x = "Longitude", y = "Latitude")
-  
-  ggsave(file.path(world_dir, "World_All_Caves.png"),
-         p_world, width = 12, height = 7, dpi = 300)
-}
-
-make_world_all_caves(df_caves)
-
-# ---------- 1b) WORLD MAP (ONLY APPROVED == YES CAVES, NO KERNEL) ----------
-
-make_world_approved_caves <- function(df) {
-  df_yes <- df %>% dplyr::filter(tolower(Approved) == "yes")
-  df_yes$longitude <- ((df_yes$longitude + 180) %% 360) - 180
-  
-  caves_ll <- st_as_sf(df_yes, coords = c("longitude","latitude"), crs = 4326, remove = FALSE)
-  world_ll <- rnaturalearth::ne_countries(scale = 110, returnclass = "sf")
-  world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
-  
-  p_world <- ggplot() +
-    geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
-    geom_sf(data = caves_ll, color = "red", size = 2, alpha = 0.85) +
-    coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +
-    theme_minimal(base_size = 11) +
-    labs(title = "World distribution of Approved caves",
-         x = "Longitude", y = "Latitude")
-  
-  ggsave(file.path(world_dir, "World_Approved_Caves.png"),
-         p_world, width = 12, height = 7, dpi = 300)
-}
-
-make_world_approved_caves(df_caves)
+    # 1b) WORLD MAP (ONLY APPROVED == YES CAVES, NO KERNEL) / MUNDU MAPA (ONARTUAK BAKARRIK == BAI KOBAK; EZ KERNEL)
+    
+    make_world_approved_caves <- function(df) {
+      df_yes <- df %>% dplyr::filter(tolower(Approved) == "yes")
+      df_yes$longitude <- ((df_yes$longitude + 180) %% 360) - 180
+      
+      caves_ll <- st_as_sf(df_yes, coords = c("longitude","latitude"), crs = 4326, remove = FALSE)
+      world_ll <- rnaturalearth::ne_countries(scale = 110, returnclass = "sf")
+      world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
+      
+      p_world <- ggplot() +
+        geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+        geom_sf(data = caves_ll, color = "red", size = 2, alpha = 0.85) +
+        coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +
+        theme_minimal(base_size = 11) +
+        labs(title = "World distribution of Approved caves",
+             x = "Longitude", y = "Latitude")
+      
+      ggsave(file.path(world_dir, "World_Approved_Caves.png"),
+             p_world, width = 12, height = 7, dpi = 300)
+    }
+    
+    make_world_approved_caves(df_caves)
 
 # ---------- 1c) WORLD MAPS BY PHASE (APPROVED == YES & CLEAN ROMAN PHASES) ----------
 
