@@ -65,6 +65,7 @@ run_script <- function(script_name, data_path, outputs_dir) {
 
 run_script("00_GIS_and_Datings.R", data_file, outputs_dir)
 run_script("01_Full_Statistics.R", data_file, outputs_dir)
+run_script("02_Full_Statistics_Bayessian_Only.R", data_file, outputs_dir)
 
 # 5. FINAL MESSAGE --------------------------------------
 

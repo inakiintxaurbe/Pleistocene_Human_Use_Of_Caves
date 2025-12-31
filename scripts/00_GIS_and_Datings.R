@@ -393,6 +393,13 @@ if (!dir.exists(outdir)) dir.create(outdir)
                                  scale_val,
                                  title_suffix = "") {
     
+    if (nrow(phase_draws_long) < 10 ||
+        length(unique(phase_draws_long$calBP)) < 2) {
+      message("Skipping ridgeplot for", title_suffix,
+              " (single-site or degenerate phase)")
+      return(invisible(NULL))
+    }
+    
     p <- ggplot() +
       ggridges::geom_density_ridges(
         data = dplyr::filter(phase_draws_long, which == "start"),
