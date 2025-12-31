@@ -15,7 +15,7 @@
 packages <- c(
   "readxl","dplyr","Bchron","HDInterval","truncnorm","tidyr","purrr",
   "openxlsx","stringr","ggplot2","sf","maps","viridis","rnaturalearth",
-  "rnaturalearthdata","MASS"
+  "rnaturalearthdata","MASS","ggridges"
 )
 installed <- rownames(installed.packages())
 for (p in packages) if (!(p %in% installed)) install.packages(p)
@@ -25,7 +25,7 @@ suppressPackageStartupMessages({
   library(truncnorm); library(tidyr); library(purrr); library(openxlsx)
   library(stringr); library(ggplot2); library(sf); library(maps)
   library(viridis);library(rnaturalearth);library(rnaturalearthdata);
-  library(MASS)
+  library(MASS);library(ggridges)
 })
 
 
@@ -371,26 +371,118 @@ if (!dir.exists(outdir)) dir.create(outdir)
   dev.off()
 
   # 2. Summary (in Roman numerals) / Laburpena (Zenbaki erromatarretan) 
-  pdf(file.path(outdir, "Phase_summary.pdf"), width=9, height=6)
+  phase_summary_all$phase <- factor(phase_summary_all$phase, levels = phase_ordered)
   
-  # conversion to factor with correct order
-  phase_summary_all$phase <- factor(
-    phase_summary_all$phase,
-    levels = phase_ordered
+  phase_draws_long <- phase_bounds_all %>%
+    dplyr::select(phase, start, end) %>%
+    tidyr::pivot_longer(cols = c(start, end),
+                        names_to = "which",
+                        values_to = "calBP") %>%
+    dplyr::mutate(
+      phase = factor(phase, levels = phase_ordered),
+      which = factor(which, levels = c("start","end"))
+    ) %>%
+    dplyr::group_by(phase, which) %>%
+    dplyr::filter(dplyr::n() > 5) %>%   
+    dplyr::ungroup()
+  
+  plot_phase_summary <- function(phase_draws_long,
+                                 phase_summary,
+                                 outfile,
+                                 alpha_val,
+                                 scale_val,
+                                 title_suffix = "") {
+    
+    p <- ggplot() +
+      ggridges::geom_density_ridges(
+        data = dplyr::filter(phase_draws_long, which == "start"),
+        aes(x = calBP, y = phase),
+        fill = "orange",
+        color = "orange",
+        alpha = alpha_val,
+        scale = scale_val,
+        rel_min_height = 0.01
+      ) +
+      ggridges::geom_density_ridges(
+        data = dplyr::filter(phase_draws_long, which == "end"),
+        aes(x = calBP, y = phase),
+        fill = "#400500",
+        color = "#400500",
+        alpha = alpha_val,
+        scale = scale_val,
+        rel_min_height = 0.01
+      ) +
+      geom_errorbar(
+        data = phase_summary,
+        aes(y = phase, xmin = start_95_from, xmax = start_95_to),
+        height = 0.10,
+        linewidth = 0.5,
+        color = "orange",
+        orientation = "y"
+      ) +
+      geom_errorbar(
+        data = phase_summary,
+        aes(y = phase, xmin = end_95_from, xmax = end_95_to),
+        height = 0.10,
+        linewidth = 0.5,
+        color = "#400500",
+        orientation = "y"
+      ) +
+      scale_x_reverse() +
+      labs(
+        title = paste0("Phase posterior densities and 95% HPD intervals", title_suffix),
+        x = "Cal BP",
+        y = "Phase"
+      ) +
+      theme_minimal(base_size = 13) +
+      theme(legend.position = "none")
+    
+    ggsave(
+      filename = outfile,
+      plot = p,
+      width = 10,
+      height = 6,
+      device = cairo_pdf
+    )
+  }
+  
+  # Subsets
+  draws_I <- phase_draws_long %>% dplyr::filter(phase == "I")
+  summary_I <- phase_summary_all %>% dplyr::filter(phase == "I")
+  
+  draws_rest <- phase_draws_long %>% dplyr::filter(phase != "I")
+  summary_rest <- phase_summary_all %>% dplyr::filter(phase != "I")
+  
+  # ALL phases
+  plot_phase_summary(
+    phase_draws_long,
+    phase_summary_all,
+    alpha_val = 0.25,
+    scale_val = 0.25,
+    file.path(outdir, "Phase_summary_ALL.pdf")
   )
   
-  ggplot(phase_summary_all, aes(y = phase)) +
-    geom_errorbarh(aes(xmin = start_95_from, xmax = start_95_to),
-                   height = 0.25, color = "blue", size = 1.2) +
-    geom_errorbarh(aes(xmin = end_95_from, xmax = end_95_to),
-                   height = 0.25, color = "red", size = 1.2) +
-    labs(title = "95% intervals for start (blue) and end (red) per phase",
-         x = "Cal BP", y = "Phase") +
-    theme_minimal(base_size = 13)
-  print(last_plot())
-
-dev.off()
-
+  # Phase I only
+  plot_phase_summary(
+    draws_I,
+    summary_I,
+    file.path(outdir, "Phase_summary_Phase_I.pdf"),
+    alpha_val = 0.25,
+    scale_val = 1.25,
+    title_suffix = " – Phase I"
+  )
+  
+  
+  # Phase II–X
+  plot_phase_summary(
+    draws_rest,
+    summary_rest,
+    file.path(outdir, "Phase_summary_Phase_II_to_X.pdf"),
+    alpha_val = 0.25,
+    scale_val = 1.25,
+    title_suffix = " – Phase II–X"
+  )
+  
 message("Graphs saved in the 'Plots_results' folder")
 
 
@@ -422,8 +514,8 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
       world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
       
       p_world <- ggplot() +
-        geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
-        geom_sf(data = caves_ll, color = "black", size = 2, alpha = 0.85) +
+        geom_sf(data = world_ll, fill = "gray90", color = "black", linewidth = 0.2) +
+        geom_sf(data = caves_ll, color = "orange", size = 2, alpha = 0.85) +
         coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +   
         theme_minimal(base_size = 11) +
         labs(title = "World distribution of all caves",
@@ -446,7 +538,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
       world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
       
       p_world <- ggplot() +
-        geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+        geom_sf(data = world_ll, fill = "gray90", color = "black", linewidth = 0.2) +
         geom_sf(data = caves_ll, color = "red", size = 2, alpha = 0.85) +
         coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +
         theme_minimal(base_size = 11) +
@@ -483,7 +575,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
         world_ll <- sf::st_wrap_dateline(world_ll, options = c("WRAPDATELINE=YES"))
         
         p_world <- ggplot() +
-          geom_sf(data = world_ll, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+          geom_sf(data = world_ll, fill = "gray90", color = "black", linewidth = 0.2) +
           geom_sf(data = caves_ll, color = "red", size = 2, alpha = 0.85) +
           coord_sf(crs = "+proj=robin +lon_0=0", expand = FALSE) +
           theme_minimal(base_size = 11) +
@@ -579,7 +671,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
         kd_eu <- if (n_pts >= 3) kde_df(xy_eu$X, xy_eu$Y, gamma = gamma, cutoff = cutoff) else NULL
         
         p_eu <- ggplot() +
-          geom_sf(data = world_eu, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+          geom_sf(data = world_eu, fill = "gray90", color = "black", linewidth = 0.2) +
           { if (!is.null(kd_eu))
             geom_raster(data = kd_eu, aes(X, Y, fill = dens),
                         alpha = 0.95, interpolate = TRUE) } +
@@ -680,7 +772,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
                                         gamma = gamma, cutoff = cutoff) else NULL
         
         p_eu <- ggplot() +
-          geom_sf(data = world_eu, fill = "antiquewhite", color = "gray60", linewidth = 0.2) +
+          geom_sf(data = world_eu, fill = "gray90", color = "black", linewidth = 0.2) +
           { if (!is.null(kd_eu))
             geom_raster(data = kd_eu, aes(X, Y, fill = dens),
                         alpha = 0.95, interpolate = TRUE) } +
@@ -705,3 +797,38 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
 
 make_approved_kernels_europe(df_caves)
 message("Done: 'Dating_results.xlsx' + plots in folders 'GIS_Results/' and 'Plot_Results/'.")
+
+# OPTIONAL / AUKERAZKOA ----------------------------------------------
+## Honi esker ikusi ahal diraz fase bakotxean badagozan datazino arraruak:
+
+ph <- "X" # hemen sartu fasea
+
+sub <- phase_bounds_all %>% filter(phase == ph)
+
+uids <- all_out$UniqueID[all_out$Phase == ph]
+mat  <- do.call(cbind, all_draws[uids])
+
+# END ARRAROAK
+idx_end <- which(sub$end < quantile(sub$end, 0.01))  # cola joven
+
+length(idx_end)
+
+culprit_end <- apply(mat[idx_end, , drop = FALSE], 1, function(x) {
+  uids[which.min(x)]   # el más reciente manda el END
+})
+
+# START ARRAROAK
+
+idx_start <- which(sub$start > quantile(sub$start, 0.99))  # cola vieja
+
+length(idx_start)
+
+culprit_start <- apply(mat[idx_start, , drop = FALSE], 1, function(x) {
+  uids[which.max(x)]   # el más antiguo manda el START
+})
+
+# BALORE ARRAROAK KONTSOLAN BEGIRATU
+message("BALORE ARRAROAK KONTSOLAN BEGIRATU")
+
+table(culprit_start)
+table(culprit_end)
