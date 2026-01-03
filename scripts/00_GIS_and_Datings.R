@@ -687,7 +687,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
           geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
           coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
           theme_minimal(base_size = 11) +
-          labs(title = paste("Bayesian Phase ", ph),
+          labs(title = paste("Bayesian Phase", ph),
                x = "X (m)", y = "Y (m)")
         
         # Roman numeral to integer for ordering / Zenbaki erromatarretatik osoetara bihurketa ordenatzeko
@@ -787,7 +787,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
           geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
           coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
           theme_minimal(base_size = 11) +
-          labs(title = paste("Approved caves - Phase", ph),
+          labs(title = paste("Approved phase", ph),
                x = "X (m)", y = "Y (m)")
         
         ph_num <- roman2int(ph)
@@ -839,4 +839,5 @@ message("BALORE ARRAROAK KONTSOLAN BEGIRATU")
 
 table(culprit_start)
 table(culprit_end)
+
 
