@@ -658,8 +658,8 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
         df
       }
       
-      eu_xlim <- c(2500000, 6500000)
-      eu_ylim <- c(1400000, 5500000)
+      eu_xlim <- c(2500000, 6000000)
+      eu_ylim <- c(1400000, 4300000)
       
       # Loop per phase / Loop faseka
       fases <- sort(unique(df_bayes$Phase), 
@@ -682,12 +682,12 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
           { if (!is.null(kd_eu))
             geom_raster(data = kd_eu, aes(X, Y, fill = dens),
                         alpha = 0.95, interpolate = TRUE) } +
-          scale_fill_viridis_c(option = "plasma", na.value = NA,
+          scale_fill_viridis_c(option = "magma", na.value = NA,
                                name = "Relative density") +
           geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
           coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
           theme_minimal(base_size = 11) +
-          labs(title = paste("Bayesian caves - Phase", ph, "(Europe, EPSG:3035)"),
+          labs(title = paste("Bayesian Phase ", ph),
                x = "X (m)", y = "Y (m)")
         
         # Roman numeral to integer for ordering / Zenbaki erromatarretatik osoetara bihurketa ordenatzeko
@@ -759,8 +759,8 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
         df
       }
       
-      eu_xlim <- c(2500000, 6500000)
-      eu_ylim <- c(1400000, 5500000)
+      eu_xlim <- c(2500000, 6000000)
+      eu_ylim <- c(1400000, 4300000)
       
       # Loop per phase / Loop-ak faseka
       fases <- unique(df_yes_clean$Phase)
@@ -787,7 +787,7 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
           geom_point(data = xy_eu, aes(X, Y), color = "red", size = 2, alpha = 0.9, na.rm = TRUE) +
           coord_sf(xlim = eu_xlim, ylim = eu_ylim, expand = FALSE, clip = "on") +
           theme_minimal(base_size = 11) +
-          labs(title = paste("Approved caves - Phase", ph, "(Europe, EPSG:3035)"),
+          labs(title = paste("Approved caves - Phase", ph),
                x = "X (m)", y = "Y (m)")
         
         ph_num <- roman2int(ph)
@@ -839,3 +839,4 @@ message("BALORE ARRAROAK KONTSOLAN BEGIRATU")
 
 table(culprit_start)
 table(culprit_end)
+
