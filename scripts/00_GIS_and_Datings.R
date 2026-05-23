@@ -1,33 +1,36 @@
-# ======================================================
-#             SPATIAL AND CHRONOLOGICAL ANALYSIS 
-# ======================================================
+#   SPATIAL AND CHRONOLOGICAL ANALYSIS 
+# 
 #   Author: Iñaki Intxaurbe Alberdi 
-#   Department of Graphic Design and Engineering Projects
-#   (Universidad del País Vasco/Euskal Herriko Unibertsitatea)
-#   PACEA UMR 5199
-#   (Université du Bordeaux)
-#   Date: 2025-10-07
 #   Copyright (C) 2025  Iñaki Intxaurbe
-# ======================================================
+#
+#   SPDX-License-Identifier: AGPL-3.0 (citation mandatory)
 
-# Install packages / Paketiak instalatu -------------------
+# Install packages and organise framework ----------------------------------------------------------------------------------------------------------------------------------------------
 
-packages <- c(
-  "readxl","dplyr","Bchron","HDInterval","truncnorm","tidyr","purrr",
+pkgs <- c(
+  "readxl", "dplyr", "Bchron", "HDInterval","truncnorm","tidyr","purrr",
   "openxlsx","stringr","ggplot2","sf","maps","viridis","rnaturalearth",
   "rnaturalearthdata","MASS","ggridges"
 )
-installed <- rownames(installed.packages())
-for (p in packages) if (!(p %in% installed)) install.packages(p)
-
-suppressPackageStartupMessages({
-  library(readxl); library(dplyr); library(Bchron); library(HDInterval)
-  library(truncnorm); library(tidyr); library(purrr); library(openxlsx)
-  library(stringr); library(ggplot2); library(sf); library(maps)
-  library(viridis);library(rnaturalearth);library(rnaturalearthdata);
-  library(MASS);library(ggridges)
-})
-
+to_install <- pkgs[!pkgs %in% rownames(installed.packages())]
+if (length(to_install) > 0) install.packages(to_install)
+library(readxl)
+library(dplyr)
+library(Bchron)
+library(HDInterval)
+library(truncnorm)
+library(tidyr)
+library(purrr)
+library(openxlsx)
+library(stringr)
+library(ggplot2)
+library(sf)
+library(maps)
+library(viridis)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(MASS)
+library(ggridges)
 
 # Helpers / Laguntzailiak---------------------------------
 
