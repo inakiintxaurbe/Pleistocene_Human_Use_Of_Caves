@@ -32,17 +32,29 @@ library(rnaturalearthdata)
 library(MASS)
 library(ggridges)
 
-# Helpers / Laguntzailiak---------------------------------
-
-hpd_from_draws_df <- function(draws, cred=0.95) {
-  hp <- HDInterval::hdi(draws, credMass=cred)
-  data.frame(from=min(hp), to=max(hp))
+hpd_from_draws_df <- function(
+  draws, 
+  cred=0.95
+) 
+{
+  hp <- HDInterval::hdi(
+    draws, 
+    credMass=cred
+  )
+  data.frame(
+    from=min(hp), 
+    to=max(hp)
+  )
 }
 
 parse_error_pm <- function(x) {
   if (is.na(x)) return(c(NA_real_, NA_real_))
   if (is.numeric(x)) return(c(as.numeric(x), as.numeric(x)))
-  s <- gsub(",", ".", as.character(x))
+  s <- gsub(
+    ",",
+    ".",
+    as.character(x)
+  )
   if (grepl("\u00B1|\\\u00B1|±", s)) {
     nums <- as.numeric(str_extract(s, "[-+]?[0-9]*\\.?[0-9]+"))
     return(c(nums, nums))
@@ -55,7 +67,11 @@ parse_error_pm <- function(x) {
 }
 
 num_safely <- function(x) {
-  s <- gsub(",", ".", as.character(x))
+  s <- gsub(
+    ",", 
+    ".", 
+    as.character(x)
+  )
   suppressWarnings(as.numeric(s))
 }
 
@@ -89,20 +105,29 @@ best_phase_interval_from_pairs <- function(df_phase, max_width=10000, k=2) {
 
 round0 <- function(x) round(x, 0)
 
+project_dir <- normalizePath(
+  file.path(
+    getwd(), 
+    ".."
+  ), 
+  winslash = "/"
+)
 
-# Read data / Datuak leiru ------------------------------
+data_dir <- file.path(project_dir, "data")
+output_dir <- file.path(project_dir, "outputs")
 
-file_path <- if (exists("data_path")) data_path else file.path(getwd(), "Table-Data-Base.xlsx")
-dat <- read_excel(file_path, sheet = "Datings")
+dir.create(
+  output_dir, 
+  recursive = TRUE, 
+  showWarnings = FALSE
+)
 
-if (!"Result" %in% names(dat)) {
-  alt <- names(dat)[grepl("^Resu[t]?\\s*C14$|^Resu[t]?$|^Result.*", names(dat), ignore.case = TRUE)]
-  if (length(alt)>0) names(dat)[match(alt[1], names(dat))] <- "Result"
-}
-if (!"Error" %in% names(dat)) {
-  altE <- names(dat)[grepl("^Error", names(dat), ignore.case = TRUE)]
-  if (length(altE)>0) names(dat)[match(altE[1], names(dat))] <- "Error"
-}
+file_path <- file.path(data_dir, "Table-Data-Base.xlsx")
+
+dat <- read_excel(
+  file_path, 
+  sheet = "Datings"
+)
 
 dat <- dat %>%
   dplyr::filter(!is.na(Phase)) %>%
@@ -114,17 +139,35 @@ dat$Error_plus  <- as.numeric(pm[,1])
 dat$Error_minus <- as.numeric(pm[,2])
 dat$Error_sd <- rowMeans(cbind(dat$Error_plus, dat$Error_minus), na.rm=TRUE)
 
-dat$AQ_PQ_clean <- toupper(gsub("\\s+", "", as.character(dat$`AQ/PQ`)))
+dat$AQ_PQ_clean <- toupper(
+    gsub(
+    "\\s+", 
+    "", 
+    as.character(dat$`AQ/PQ`)
+  )
+)
 dat$AQ_PQ_clean[!dat$AQ_PQ_clean %in% c("AQ","PQ","ER")] <- NA
 
-is_c14 <- grepl("C\\s*14\\s*AMS", dat$Method, ignore.case = TRUE)
-is_uth <- grepl("U\\s*-?\\s*/?\\s*Th", dat$Method, ignore.case = TRUE)
+is_c14 <- grepl(
+  "C\\s*14\\s*AMS", 
+  dat$Method, 
+  ignore.case = TRUE
+)
+is_uth <- grepl(
+  "U\\s*-?\\s*/?\\s*Th", 
+  dat$Method, 
+  ignore.case = TRUE
+)
 
 
-# C14 AMS --------------------------------------------------
+# C14 AMS ----------------------------------------------------------------------------------------------------------------------------------------------
 
 c14 <- dat %>%
-  dplyr::filter(is_c14, !is.na(Result), !is.na(Error_sd)) %>%
+  dplyr::filter(
+    is_c14, 
+    !is.na(Result), 
+    !is.na(Error_sd)
+  ) %>%
   dplyr::mutate(
     AQ_PQ = AQ_PQ_clean,
     UniqueID = make.unique(as.character(`Sample ID`), sep = "_")
@@ -159,7 +202,7 @@ samplers_c14 <- purrr::map2(bc, seq_len(nrow(c14)), function(cal, i) {
 })
 
 
-# U/Th -----------------------------------------------------
+# U/Th ----------------------------------------------------------------------------------------------------------------------------------------------
 
 uth_raw <- dat %>%
   dplyr::filter(is_uth, !is.na(Result), !is.na(Error_plus) | !is.na(Error_minus)) %>%
@@ -191,9 +234,26 @@ samplers_uth <- list()
 if (nrow(uth) > 0) {
   samplers_uth <- lapply(seq_len(nrow(uth)), function(i) {
     mu <- uth$Result[i]
-    sd <- ifelse(is.na(uth$Error_sd[i]), mean(c(uth$Error_plus[i], uth$Error_minus[i]), na.rm=TRUE), uth$Error_sd[i])
-    a <- ifelse(!is.na(uth$Phase_min[i]), uth$Phase_min[i], mu - 2*uth$Error_minus[i])
-    b <- ifelse(!is.na(uth$Phase_max[i]), uth$Phase_max[i], mu + 2*uth$Error_plus[i])
+    sd <- ifelse(
+      is.na(uth$Error_sd[i]), 
+      mean(
+        c(
+          uth$Error_plus[i], 
+          uth$Error_minus[i]
+        ), 
+      na.rm=TRUE), 
+      uth$Error_sd[i]
+    )
+    a <- ifelse(
+      !is.na(uth$Phase_min[i]), 
+      uth$Phase_min[i], 
+      mu - 2*uth$Error_minus[i]
+    )
+    b <- ifelse(
+      !is.na(uth$Phase_max[i]), 
+      uth$Phase_max[i], 
+      mu + 2*uth$Error_plus[i]
+    )
     if (!is.finite(a)) a <- mu - 4*sd
     if (!is.finite(b)) b <- mu + 4*sd
     if (a >= b) { m <- (a+b)/2; a <- m-1; b <- m+1 }
@@ -206,8 +266,14 @@ if (nrow(uth) > 0) {
 # Monte Carlo analysis -----------------------------
 
 N <- 5000
-draws_c14 <- lapply(samplers_c14, function(f) f(N)); names(draws_c14) <- c14$UniqueID
-draws_uth <- lapply(samplers_uth, function(f) f(N)); names(draws_uth) <- uth$UniqueID
+draws_c14 <- lapply(
+  samplers_c14, 
+  function(f) f(N)
+  ); names(draws_c14) <- c14$UniqueID
+draws_uth <- lapply(
+  samplers_uth, 
+  function(f) f(N)
+  ); names(draws_uth) <- uth$UniqueID
 
 
 # Outputak / Emaitzak -------------------------------
@@ -338,13 +404,16 @@ writeData(wb, "Datings_combined", all_out)
 writeData(wb, "Phase_bounds_combined", phase_summary_all)
 writeData(wb, "PQ_AQ_log", pqaq_log_df)
 
-saveWorkbook(wb, "Datings_results.xlsx", overwrite = TRUE)
-message("Datings_results.xlsx saved")
+saveWorkbook(
+  wb,
+  file.path(output_dir, "Datings_results.xlsx"),
+  overwrite = TRUE
+  )
 
 
 # Create graphs / Grafikoak sortu ------------------------
 
-outdir <- file.path(getwd(), "Plots_results")
+outdir <- file.path(output_dir, "Plots_results")
 if (!dir.exists(outdir)) dir.create(outdir)
 
   # 1. Densities per phase (in Roman numerals) / Dentsitateak faseka (zenbaki erromatarretan)
@@ -507,12 +576,24 @@ df_caves$longitude <- as.numeric(df_caves$longitude)
 df_caves <- df_caves[!is.na(df_caves$latitude) & !is.na(df_caves$longitude), ]
 
 # Output dir for maps / Direktorioa mapentzako
-gisdir    <- file.path(getwd(), "GIS_results")
-world_dir <- file.path(gisdir, "Worldmaps")
-eu_dir    <- file.path(gisdir, "European_Kernel_Densities")
 
-dir.create(world_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
+gisdir    <- file.path(
+  output_dir, 
+  "GIS_results"
+  )
+if (!dir.exists(gisdir)) dir.create(gisdir)
+
+world_dir <- file.path(
+  gisdir, 
+  "Worldmaps"
+  )
+if (!dir.exists(world_dir)) dir.create(world_dir)
+
+eu_dir    <- file.path(
+  gisdir, 
+  "European_Kernel_Densities"
+  )
+if (!dir.exists(eu_dir)) dir.create(eu_dir)
 
     # 1a) WORLD MAP (ALL CAVES, NO KERNEL) / MUNDU MAPA (KOBA DANAK; EZ KERNEL)
     
@@ -604,7 +685,10 @@ dir.create(eu_dir, recursive = TRUE, showWarnings = FALSE)
 
     # 2) KDE IN EUROPE (BAYESIAN CAVES ONLY, PER PHASE) / KERNEL DENTSITATE ESTIMAZIOA EUROPAN (BAYESIAN / MONTE-CARLO KOBAK BAKARRIK FASEKA)
     # Build the list of Bayesian caves (Cave+Phase present in Datings_results.xlsx)
-    df_bayes <- read_excel("Datings_results.xlsx", sheet = "Datings_combined") %>%
+    df_bayes <- read_excel(
+     file.path(output_dir, "Datings_results.xlsx"), 
+      sheet = "Datings_combined"
+    ) %>%
       dplyr::distinct(Cave, Phase, .keep_all = TRUE)
     
     df_bayes_caves <- df_caves %>%
