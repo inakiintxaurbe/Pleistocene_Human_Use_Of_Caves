@@ -652,8 +652,7 @@ if (!dir.exists(eu_dir)) dir.create(eu_dir)
         dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
       
       # Roman numerals to integers converter
-      roman2int <- function(x) as.numeric(as.roman(x))
-      
+            
       fases <- unique(df_yes_clean$Phase)
       fases <- fases[order(roman2int(fases))]   
       
