@@ -1,31 +1,35 @@
-# ======================================================
-#        FULL STATISTICAL ANALYSIS (BAYESIAN ONLY)
-# ======================================================
-#   Author: Iñaki Intxaurbe Alberdi
-#   Bayesian-consistent version aligned with GIS
-# ======================================================
+#   FULL STATISTICAL ANALYSIS (BAYESIAN ONLY) 
+# 
+#   Author: Iñaki Intxaurbe Alberdi 
+#   Copyright (C) 2025  Iñaki Intxaurbe
+#
+#   SPDX-License-Identifier: AGPL-3.0 (citation mandatory)
 
+# Install packages and organise framework ----------------------------------------------------------------------------------------------------------------------------------------------
 
-# ------------------ PACKAGES ---------------------------
-
-packages <- c(
+pkgs <- c(
   "readxl","dplyr","FactoMineR","factoextra",
   "pheatmap","openxlsx","reshape2","tibble","tidyr",
   "stringr","ggplot2","DescTools","RColorBrewer"
 )
 
-installed <- rownames(installed.packages())
-for (p in packages) if (!(p %in% installed)) install.packages(p)
+to_install <- pkgs[!pkgs %in% rownames(installed.packages())]
+if (length(to_install) > 0) install.packages(to_install)
+library(readxl)
+library(dplyr)
+library(FactoMineR)
+library(factoextra)
+library(pheatmap)
+library(openxlsx)
+library(reshape2)
+library(tibble)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(DescTools)
+library(RColorBrewer)
 
-suppressPackageStartupMessages({
-  library(readxl); library(dplyr); library(FactoMineR); library(factoextra)
-  library(pheatmap); library(openxlsx); library(reshape2); library(tibble)
-  library(tidyr); library(stringr); library(ggplot2); library(DescTools)
-  library(RColorBrewer)
-})
-
-
-# ------------------ HELPERS ----------------------------
+# Helpers / Laguntzailiak---------------------------------
 
 roman_levels <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
 
