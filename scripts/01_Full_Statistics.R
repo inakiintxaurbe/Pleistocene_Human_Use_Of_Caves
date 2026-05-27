@@ -1,30 +1,32 @@
-# ======================================================
-#               FULL STATISTICAL ANALYSIS 
-# ======================================================
+#   FULL STATISTICAL ANALYSIS
+# 
 #   Author: Iñaki Intxaurbe Alberdi 
-#   Department of Graphic Design and Engineering Projects
-#   (Universidad del País Vasco/Euskal Herriko Unibertsitatea)
-#   PACEA UMR 5199
-#   (Université du Bordeaux)
-#   Date: 2025-10-07
 #   Copyright (C) 2025  Iñaki Intxaurbe
-# ======================================================
+#
+#   SPDX-License-Identifier: AGPL-3.0 (citation mandatory)
 
-# Install packages / Paketiak instalatu -------------------
+# Install packages and organise framework ----------------------------------------------------------------------------------------------------------------------------------------------
 
-packages <- c(
+pkgs <- c(
   "readxl","dplyr","FactoMineR","factoextra",
   "pheatmap","openxlsx","reshape2","tibble","tidyr",
   "stringr","ggplot2","DescTools","RColorBrewer"
 )
-installed <- rownames(installed.packages())
-for (p in packages) if (!(p %in% installed)) install.packages(p)
-suppressPackageStartupMessages({
-  library(readxl); library(dplyr); library(FactoMineR); library(factoextra)
-  library(pheatmap); library(openxlsx); library(reshape2); library(tibble)
-  library(tidyr); library(stringr); library(ggplot2); library(DescTools)
-  library(RColorBrewer)
-})
+to_install <- pkgs[!pkgs %in% rownames(installed.packages())]
+if (length(to_install) > 0) install.packages(to_install)
+library(readxl)
+library(dplyr)
+library(FactoMineR)
+library(factoextra)
+library(pheatmap)
+library(openxlsx)
+library(reshape2)
+library(tibble)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(DescTools)
+library(RColorBrewer)
 
 
 # Helpers / Laguntzailiak---------------------------------
