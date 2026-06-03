@@ -105,20 +105,42 @@ df_bin <- df %>%
     as.integer(ifelse(!is.na(x) & x == "X", 1, 0))
   })) %>%
   mutate(
-    Phase_clean = ifelse(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", trimws(Phase)), trimws(Phase), NA),
-    Phase_clean = factor(Phase_clean, levels = roman_levels, ordered = TRUE)
+    Phase_clean = ifelse(grepl(
+      "^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", 
+      trimws(Phase)), 
+      trimws(Phase), 
+      NA
+    ),
+    Phase_clean = factor(
+      Phase_clean, 
+      levels = roman_levels, 
+      ordered = TRUE
+    )
   )
 
 # Fixed palettes for categorical plots
 region_levels_sorted <- sort(unique(na.omit(df_bin$Region)))
-region_pal <- make_named_palette(region_levels_sorted, base_pal = "Dark2", min_n = 3)
-phase_pal  <- setNames(brewer.pal(10, "Set3"), roman_levels)
+region_pal <- make_named_palette(
+                region_levels_sorted, 
+                base_pal = "Dark2", 
+                min_n = 3
+              )
+phase_pal  <- setNames(
+                brewer.pal(10, "Set3"), 
+                roman_levels
+              )
 
 
 # Chi-square + residuals (evidences) / Chi karratua + hondarrak (ebidentziak) -------------------------
 
-results <- tibble(Evidence=character(), Test=character(), p_value=double(),
-                  Significant=character(), Max_category=character())
+results <- tibble(
+  Evidence=character(), 
+  Test=character(), 
+  p_value=double(),
+                  
+  Significant=character(), 
+  Max_category=character()
+)
 detailed_residuals <- list()
 
 run_chi2_block <- function(var_bin_name, group_var, df_data) {
@@ -139,11 +161,20 @@ run_chi2_block <- function(var_bin_name, group_var, df_data) {
 }
 
 for (v in evidences) {
-  x1 <- run_chi2_block(v, "Region", df_bin);      if (!is.null(x1)) results <- bind_rows(results, x1)
-  x2 <- run_chi2_block(v, "Phase_clean", df_bin); if (!is.null(x2)) results <- bind_rows(results, x2)
+  x1 <- run_chi2_block(
+        v, 
+        "Region", 
+        df_bin
+      );      if (!is.null(x1)) results <- bind_rows(results, x1)
+  x2 <- run_chi2_block(
+        v, 
+        "Phase_clean", 
+        df_bin
+      ); if (!is.null(x2)) results <- bind_rows(results, x2)
 }
 
-detailed_residuals <- if (length(detailed_residuals)>0) bind_rows(detailed_residuals) else tibble()
+detailed_residuals <- if (length(detailed_residuals)>0) 
+  bind_rows(detailed_residuals) else tibble()
 
 if (nrow(detailed_residuals) > 0) {
   detailed_residuals <- detailed_residuals %>%
@@ -174,7 +205,16 @@ interpretations <- if (nrow(detailed_residuals) > 0) {
 depth_col <- "Reached aprox. depth (m)"
 stopifnot(depth_col %in% names(df_bin))
 df_bin <- df_bin %>%
-  mutate(Depth_m = suppressWarnings(as.numeric(gsub(",", ".", as.character(.data[[depth_col]])))))
+  mutate(Depth_m = suppressWarnings(
+    as.numeric(
+      gsub(
+        ",", 
+        ".", 
+        as.character(.data[[depth_col]])
+        )
+      )
+    )
+  )
 
 diff_col <- "Level of difficulty of access"
 stopifnot(diff_col %in% names(df_bin))
@@ -193,8 +233,17 @@ normalize_difficulty <- function(x) {
 df_bin <- df_bin %>%
   mutate(
     Difficulty_num = normalize_difficulty(.data[[diff_col]]),
-    Difficulty_fac = factor(Difficulty_num, levels = 1:5,
-                            labels = c("Very Low","Low","Medium","Hard","Very Hard"))
+    Difficulty_fac = factor(
+                      Difficulty_num, 
+                      levels = 1:5,
+                      labels = c(
+                          "Very Low",
+                          "Low",
+                          "Medium",
+                          "Hard",
+                          "Very Hard"
+                        )
+                      )
   )
 
 
@@ -265,8 +314,18 @@ kw_results_depth <- bind_rows(
 
 kw_results_diff <- bind_rows(
   kw_results_diff,
-  add_kw(df_bin, "Difficulty_num", "Region", "Difficulty_num"),
-  add_kw(df_bin, "Difficulty_num", "Phase_clean", "Difficulty_num")
+  add_kw(
+    df_bin, 
+    "Difficulty_num", 
+    "Region", 
+    "Difficulty_num"
+    ),
+  add_kw(
+    df_bin, 
+    "Difficulty_num", 
+    "Phase_clean", 
+    "Difficulty_num"
+    )
 )
 
                    
@@ -463,28 +522,95 @@ safe_select <- function(df, cols) {
   df %>% dplyr::select(dplyr::all_of(cols))
 }
 
-writeData(wb, "Chi2_Results", results)
+writeData(
+  wb, 
+  "Chi2_Results", 
+  results
+)
 
-writeData(wb, "detailed_residuals",
-          safe_select(detailed_residuals,
-                      c("Category","Value","Residual","Evidence","Test","Direction","Es_Significant")))
+writeData(
+  wb, 
+  "detailed_residuals",
+  safe_select(
+    detailed_residuals,
+    c(
+      "Category",
+      "Value",
+      "Residual",
+      "Evidence",
+      "Test",
+      "Direction",
+      "Es_Significant"
+    )
+  )
+)
 
-writeData(wb, "Interpretations_presence", interpretations)
-writeData(wb, "Difficulty_Chi2", assoc_results)
-writeData(wb, "Difficulty_KW", kw_results_diff)
+writeData(
+  wb, 
+  "Interpretations_presence", 
+  interpretations
+)
+writeData(
+  wb, 
+  "Difficulty_Chi2", 
+  assoc_results
+)
+writeData(
+  wb, 
+  "Difficulty_KW", 
+  kw_results_diff
+)
 
-writeData(wb, "Residuals_Difficulty",
-          safe_select(detailed_residuals_diff,
-                      c("Category","Value","Residual","Evidence","Test","Direction","Es_Significant")))
+writeData(
+  wb, 
+  "Residuals_Difficulty",
+  safe_select(
+    detailed_residuals_diff,
+    c(
+      "Category",
+      "Value",
+      "Residual",
+      "Evidence",
+      "Test",
+      "Direction",
+      "Es_Significant"
+    )
+  )
+)
 
-writeData(wb, "Interpretations_Difficulty", interpretations_difficulty)
-writeData(wb, "Depth_KW", kw_results_depth)
+writeData(
+  wb, 
+  "Interpretations_Difficulty", 
+  interpretations_difficulty
+)
+writeData(
+  wb, 
+  "Depth_KW", 
+  kw_results_depth
+)
 
-writeData(wb, "Residuals_Depth",
-          safe_select(detailed_residuals_depth,
-                      c("Category","Value","Residual","Evidence","Test","Direction","Es_Significant")))
+writeData(
+  wb, 
+  "Residuals_Depth",
+  safe_select(
+    detailed_residuals_depth,
+    c(
+      "Category",
+      "Value",
+      "Residual",
+      "Evidence",
+      "Test",
+      "Direction",
+      "Es_Significant"
+    )
+  )
+)
 
-writeData(wb, "Interpretations_Depth", interpretations_depth)
+writeData(
+  wb, 
+  "Interpretations_Depth", 
+  interpretations_depth
+)
 
 saveWorkbook(
   wb,
