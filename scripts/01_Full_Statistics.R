@@ -486,6 +486,12 @@ writeData(wb, "Residuals_Depth",
 
 writeData(wb, "Interpretations_Depth", interpretations_depth)
 
+saveWorkbook(
+  wb,
+  file.path(output_dir, "evidences_Tests.xlsx"),
+  overwrite = TRUE
+)
+
 
 # Heatmaps (orignals) / Berotasun mapak (originalak) -------------------------------
 
@@ -751,9 +757,3 @@ if (nrow(mat_depth_phase) > 0) {
   )
   dev.off()
 }
-
-
-# Save Excel / Excel-a gorde ------------------------------------------------
-
-saveWorkbook(wb, "evidences_Tests.xlsx", overwrite=TRUE)
-message("Done: 'evidences_Tests.xlsx' + plots in folder'Plots/'.")
