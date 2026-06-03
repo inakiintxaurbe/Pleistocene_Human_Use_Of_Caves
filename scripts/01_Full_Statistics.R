@@ -28,8 +28,6 @@ library(ggplot2)
 library(DescTools)
 library(RColorBrewer)
 
-
-# Helpers / Laguntzailiak---------------------------------
 roman2int <- function(x) suppressWarnings(as.numeric(as.roman(trimws(toupper(x)))))
 
 # Fixed palettes by Region/Phase (for violin/boxplots)
@@ -40,13 +38,6 @@ make_named_palette <- function(levels_vec, base_pal = "Dark2", min_n = 3) {
   base_cols  <- RColorBrewer::brewer.pal(min(max_brewer, max(3, min_n)), base_pal)
   cols <- if (n <= length(base_cols)) base_cols[seq_len(n)] else colorRampPalette(base_cols)(n)
   stats::setNames(cols, lv)
-}
-
-# Folder for plots
-plot_dir <- file.path(getwd(), "Plots")
-if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
-save_plot <- function(filename, plot, w=10, h=6, dpi=300) {
-  ggplot2::ggsave(filename = file.path(plot_dir, filename), plot = plot, width = w, height = h, dpi = dpi)
 }
 
 # Theme ggplot
@@ -64,7 +55,42 @@ effect_none <- function() "No clear association"
 
 # Read data / Datuak leiru ------------------------------
 
-file_path <- if (exists("data_path")) data_path else file.path(getwd(), "Table-Data-Base.xlsx")
+project_dir <- normalizePath(
+  file.path(
+    getwd(), 
+    ".."
+  ), 
+  winslash = "/"
+)
+
+data_dir <- file.path(project_dir, "data")
+output_dir <- file.path(project_dir, "outputs")
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+dir.create(
+  output_dir, 
+  recursive = TRUE, 
+  showWarnings = FALSE
+)
+plot_dir <- file.path(output_dir, "Plots")
+if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+save_plot <- function(
+    filename, 
+    plot, 
+    w=10, 
+    h=6, 
+    dpi=300
+  ) 
+  {
+  ggplot2::ggsave(
+    filename = file.path(plot_dir, filename), 
+    plot = plot, 
+    width = w, 
+    height = h, 
+    dpi = dpi
+  )
+}
+
+file_path <- file.path(data_dir, "Table-Data-Base.xlsx")
 df <- read_excel(file_path, sheet = "Caves") %>% filter(tolower(Approved) == "yes")
 
 evidences <- c(
