@@ -69,7 +69,7 @@ dir.create(
   showWarnings = FALSE
 )
 
-plot_dir <- file.path(output_dir, "Plots")
+plot_dir <- file.path(output_dir, "Plots_Full_Statistics")
 
 if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
