@@ -10,7 +10,7 @@
 pkgs <- c(
   "readxl","dplyr","FactoMineR","factoextra",
   "pheatmap","openxlsx","reshape2","tibble","tidyr",
-  "stringr","ggplot2","DescTools","RColorBrewer"
+  "stringr","ggplot2","DescTools","viridisLite"
 )
 
 to_install <- pkgs[!pkgs %in% rownames(installed.packages())]
@@ -27,62 +27,100 @@ library(tidyr)
 library(stringr)
 library(ggplot2)
 library(DescTools)
-library(RColorBrewer)
-
-# Helpers / Laguntzailiak---------------------------------
-
-roman_levels <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
+library(viridisLite)
 
 roman2int <- function(x) suppressWarnings(as.numeric(as.roman(trimws(toupper(x)))))
 
 theme_pub <- theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+roman_levels <- c(
+  "I",
+  "II",
+  "III",
+  "IV",
+  "V",
+  "VI",
+  "VII",
+  "VIII",
+  "IX",
+  "X"
+)
 
-# ------------------ DATA INPUT -------------------------
+project_dir <- normalizePath(
+  file.path(
+    getwd(), 
+    ".."
+  ), 
+  winslash = "/"
+)
 
-file_path <- if (exists("data_path")) data_path else file.path(getwd(), "Table-Data-Base.xlsx")
+data_dir <- file.path(project_dir, "data")
+output_dir <- file.path(project_dir, "outputs")
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+dir.create(
+  output_dir, 
+  recursive = TRUE, 
+  showWarnings = FALSE
+)
 
-# 1) CAVES (approved only)
-df_caves <- read_excel(file_path, sheet = "Caves") %>%
+file_path <- file.path(data_dir, "Table-Data-Base.xlsx")
+
+df_caves <- read_excel(file_path, sheet = "Caves") %>% 
   filter(tolower(Approved) == "yes")
 
-# 2) BAYESIAN PHASES (from Monte-Carlo results)
-df_bayes <- read_excel("Datings_results.xlsx", sheet = "Datings_combined") %>%
+df_bayes <- read_excel(
+  file.path(output_dir, "Datings_results.xlsx"), 
+  sheet = "Datings_combined"
+  ) %>%
   distinct(Cave, Phase)
 
-# 3) KEEP ONLY BAYESIAN CAVE–PHASE PAIRS
 df <- df_caves %>%
   inner_join(df_bayes, by = c("Cave","Phase"))
 
-
-# ------------------ EVIDENCES --------------------------
-
 evidences <- c(
-  "Rock Art","Portable Art","Structures / Speleofacts",
-  "Lithic Industry","Modified bones","Ochre remains",
-  "Human Remains","Footprints","Fire Remains"
+  "Rock Art",
+  "Portable Art",
+  "Structures / Speleofacts",
+  "Lithic Industry",
+  "Modified bones",
+  "Ochre remains",
+  "Human Remains",
+  "Footprints",
+  "Fire Remains"
 )
+
 
 df_bin <- df %>%
   mutate(across(all_of(evidences), ~{
     x <- toupper(trimws(as.character(.)))
-    as.integer(ifelse(!is.na(x) & x == "X", 1, 0))
+    as.integer(
+      ifelse(
+        !is.na(x) & x == "X", 
+        1, 
+        0)
+      )
   })) %>%
   mutate(
-    Phase_clean = factor(Phase, levels = roman_levels, ordered = TRUE)
+    Phase_clean = factor(
+      Phase, 
+      levels = roman_levels, 
+      ordered = TRUE
+      )
   )
 
 
-# ------------------ DEPTH & DIFFICULTY -----------------
+# DEPTH & DIFFICULTY ----------------------------------------------------------------------------------------------------------------------------------------------
 
-# Depth
+## Depth
+
 df_bin <- df_bin %>%
   mutate(Depth_m = suppressWarnings(
     as.numeric(gsub(",", ".", as.character(`Reached aprox. depth (m)`)))
   ))
 
-# Difficulty
+## Difficulty
+
 df_bin <- df_bin %>%
   mutate(
     Difficulty_num = case_when(
@@ -96,25 +134,35 @@ df_bin <- df_bin %>%
     Difficulty_fac = factor(
       Difficulty_num,
       levels = 1:5,
-      labels = c("Very Low","Low","Medium","Hard","Very Hard")
+      labels = c(
+        "Very Low",
+        "Low",
+        "Medium",
+        "Hard",
+        "Very Hard"
+        )
     )
   )
 
 
-# ------------------ OUTPUT FOLDER ----------------------
+# OUTPUT FOLDER ----------------------------------------------------------------------------------------------------------------------------------------------
 
-plot_dir <- file.path(getwd(), "Plots_Bayesian_Only")
+plot_dir <- file.path(output_dir, "Plots_Bayesian_Only")
 if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
-
-# ======================================================
-#                     HEATMAPS
-# ======================================================
+# HEATMAPS ----------------------------------------------------------------------------------------------------------------------------------------------
 
 ## Phase × Evidence (Bayesian only)
+
 mat_phase <- df_bin %>%
   group_by(Phase_clean) %>%
-  summarise(across(all_of(evidences), ~ mean(.==1, na.rm=TRUE)), .groups="drop") %>%
+  summarise(
+    across(
+      all_of(evidences), 
+      ~ mean(.==1, na.rm=TRUE)
+      ), 
+    .groups="drop"
+    ) %>%
   as.data.frame()
 
 rownames(mat_phase) <- mat_phase$Phase_clean
@@ -135,8 +183,8 @@ pheatmap(as.matrix(mat_phase),
 
 dev.off()
 
-
 ## Region × Evidence (Bayesian only)
+
 mat_region <- df_bin %>%
   group_by(Region) %>%
   summarise(across(all_of(evidences), ~ mean(.==1, na.rm=TRUE)), .groups="drop") %>%
@@ -158,45 +206,94 @@ pheatmap(as.matrix(mat_region),
 dev.off()
 
 
-# ======================================================
-#                     BOXPLOTS
-# ======================================================
+# BOXPLOTS ----------------------------------------------------------------------------------------------------------------------------------------------
 
 ## Depth by Phase
+
 if (!all(is.na(df_bin$Depth_m))) {
-  g1 <- ggplot(df_bin, aes(x = Phase_clean, y = Depth_m, fill = Phase_clean)) +
+  g1 <- ggplot(
+    df_bin, 
+    aes(
+      x = Phase_clean, 
+      y = Depth_m, 
+      fill = Phase_clean
+      )
+    ) +
     geom_boxplot() +
-    labs(title="Depth by Phase (Bayesian only)",
-         x="Phase", y="Depth (m)") +
+    labs(
+      title="Depth by Phase (Bayesian only)",
+      x="Phase", 
+      y="Depth (m)"
+      ) +
     theme_pub
   
-  ggsave(file.path(plot_dir,"Boxplot_Depth_Phase_Bayesian.png"),
-         g1, width=9, height=6, dpi=300)
+  ggsave(
+    file.path(
+      plot_dir,
+      "Boxplot_Depth_Phase_Bayesian.png"
+      ),
+    g1, 
+    width=9, 
+    height=6, 
+    dpi=300
+  )
 }
 
 ## Difficulty by Phase
+
 if (!all(is.na(df_bin$Difficulty_num))) {
-  g2 <- ggplot(df_bin, aes(x = Phase_clean, y = Difficulty_num, fill = Phase_clean)) +
+  g2 <- ggplot(
+    df_bin, 
+    aes(
+      x = Phase_clean, 
+      y = Difficulty_num, 
+      fill = Phase_clean
+      )
+    ) +
     geom_boxplot() +
-    scale_y_continuous(breaks=1:5,
-                       labels=c("Very Low","Low","Medium","Hard","Very Hard")) +
-    labs(title="Difficulty by Phase (Bayesian only)",
-         x="Phase", y="Difficulty") +
+    scale_y_continuous(
+      breaks=1:5,
+      labels=c(
+        "Very Low",
+        "Low",
+        "Medium",
+        "Hard",
+        "Very Hard"
+        )
+      ) +
+    labs(
+      title="Difficulty by Phase (Bayesian only)",
+      x="Phase", 
+      y="Difficulty"
+    ) +
     theme_pub
   
-  ggsave(file.path(plot_dir,"Boxplot_Difficulty_Phase_Bayesian.png"),
-         g2, width=9, height=6, dpi=300)
+  ggsave(
+    file.path(
+      plot_dir,
+      "Boxplot_Difficulty_Phase_Bayesian.png"
+    ),
+    g2, 
+    width=9, 
+    height=6, 
+    dpi=300
+  )
 }
 
 
-# ======================================================
-#               CORRESPONDENCE ANALYSIS
-# ======================================================
+# CORRESPONDENCE ANALYSIS ----------------------------------------------------------------------------------------------------------------------------------------------
 
 ## CA – Phase × Evidence
+
 tab_ca_phase <- df_bin %>%
   group_by(Phase_clean) %>%
-  summarise(across(all_of(evidences), ~ sum(.==1, na.rm=TRUE)), .groups="drop") %>%
+  summarise(
+    across(
+      all_of(evidences), 
+      ~ sum(.==1, na.rm=TRUE)
+    ), 
+    .groups="drop"
+  ) %>%
   as.data.frame()
 
 rownames(tab_ca_phase) <- tab_ca_phase$Phase_clean
@@ -211,7 +308,7 @@ if (nrow(tab_ca_phase) > 1 && ncol(tab_ca_phase) > 1) {
   dev.off()
 }
 
-### VIOLIN PLOTS / BIBOLIN FORMAKO GRAFIKUAK -------------
+### VIOLIN PLOTS ----------------------------------------------------------------------------------------------------------------------------------------------
 
 # Sakonera / Depth
 
@@ -238,7 +335,7 @@ if (!all(is.na(df_bin$Depth_m))) {
   )
 }
 
-# Zailtasuna / Difficulty ------------------------------
+# Difficulty ----------------------------------------------------------------------------------------------------------------------------------------------
 
 if (!all(is.na(df_bin$Difficulty_num))) {
   g_violin_diff <- ggplot(
@@ -266,10 +363,3 @@ if (!all(is.na(df_bin$Difficulty_num))) {
     dpi = 300
   )
 }
-
-
-# ======================================================
-#                    END
-# ======================================================
-
-message("Bayesian-only statistical analysis completed.")
