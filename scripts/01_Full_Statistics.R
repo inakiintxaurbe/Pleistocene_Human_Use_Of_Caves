@@ -906,7 +906,7 @@ if (nrow(detailed_residuals) > 0) {
     )
     rownames(mat_res_region) <- mat_res_region$Category
     mat_res_region <- mat_res_region[
-      2,
+      ,
       -1, 
       drop=FALSE
     ]
