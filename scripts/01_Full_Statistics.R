@@ -1164,7 +1164,7 @@ difficulty_y_scale <- scale_y_continuous(
   breaks = 1:5,
   labels = c(
     "Very Low",
-    "Low",ç
+    "Low",
     "Medium",
     "Hard",
     "Very Hard"
