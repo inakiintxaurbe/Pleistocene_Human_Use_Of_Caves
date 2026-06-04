@@ -10,7 +10,7 @@
 pkgs <- c(
   "readxl","dplyr","FactoMineR","factoextra",
   "pheatmap","openxlsx","reshape2","tibble","tidyr",
-  "stringr","ggplot2","DescTools","RColorBrewer"
+  "stringr","ggplot2","DescTools","viridisLite"
 )
 to_install <- pkgs[!pkgs %in% rownames(installed.packages())]
 if (length(to_install) > 0) install.packages(to_install)
@@ -26,34 +26,29 @@ library(tidyr)
 library(stringr)
 library(ggplot2)
 library(DescTools)
-library(RColorBrewer)
+library(viridisLite)
 
 roman2int <- function(x) suppressWarnings(as.numeric(as.roman(trimws(toupper(x)))))
 
-# Fixed palettes by Region/Phase (for violin/boxplots)
-make_named_palette <- function(levels_vec, base_pal = "Dark2", min_n = 3) {
-  lv <- sort(unique(as.character(levels_vec)))
-  n  <- max(min_n, length(lv))
-  max_brewer <- RColorBrewer::brewer.pal.info[base_pal, "maxcolors"]
-  base_cols  <- RColorBrewer::brewer.pal(min(max_brewer, max(3, min_n)), base_pal)
-  cols <- if (n <= length(base_cols)) base_cols[seq_len(n)] else colorRampPalette(base_cols)(n)
-  stats::setNames(cols, lv)
-}
-
-# Theme ggplot
 theme_pub <- theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# Phases
-roman_levels <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
+roman_levels <- c(
+  "I",
+  "II",
+  "III",
+  "IV",
+  "V",
+  "VI",
+  "VII",
+  "VIII",
+  "IX",
+  "X"
+)
 
-# Evidence-style effect phrases
 effect_pos <- function(extra="") paste0("Positive (more than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
 effect_neg <- function(extra="") paste0("Negative (less than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
 effect_none <- function() "No clear association"
-
-
-# Read data / Datuak leiru ------------------------------
 
 project_dir <- normalizePath(
   file.path(
@@ -94,9 +89,15 @@ file_path <- file.path(data_dir, "Table-Data-Base.xlsx")
 df <- read_excel(file_path, sheet = "Caves") %>% filter(tolower(Approved) == "yes")
 
 evidences <- c(
-  "Rock Art","Portable Art","Structures / Speleofacts",
-  "Lithic Industry","Modified bones","Ochre remains",
-  "Human Remains","Footprints","Fire Remains"
+  "Rock Art",
+  "Portable Art",
+  "Structures / Speleofacts",
+  "Lithic Industry",
+  "Modified bones",
+  "Ochre remains",
+  "Human Remains",
+  "Footprints",
+  "Fire Remains"
 )
 
 df_bin <- df %>%
@@ -118,20 +119,27 @@ df_bin <- df %>%
     )
   )
 
-# Fixed palettes for categorical plots
-region_levels_sorted <- sort(unique(na.omit(df_bin$Region)))
-region_pal <- make_named_palette(
-                region_levels_sorted, 
-                base_pal = "Dark2", 
-                min_n = 3
-              )
+region_levels <- sort(unique(df_bin$Region))
+
+region_pal <- setNames(
+  viridisLite::viridis(
+    length(region_levels),
+    option = "viridis"
+  ),
+  region_levels
+)
+
 phase_pal  <- setNames(
-                brewer.pal(10, "Set3"), 
-                roman_levels
-              )
+  viridisLite::viridis(
+    length(roman_levels),
+    option = "plasma"
+  ),
+  roman_levels
+)
 
 
-# Chi-square + residuals (evidences) / Chi karratua + hondarrak (ebidentziak) -------------------------
+# Chi-square + residuals (evidences) ----------------------------------------------------------------------------------------------------------------------------------------------
+
 
 results <- tibble(
   Evidence=character(), 
@@ -143,7 +151,11 @@ results <- tibble(
 )
 detailed_residuals <- list()
 
-run_chi2_block <- function(var_bin_name, group_var, df_data) {
+run_chi2_block <- function(
+    var_bin_name, 
+    group_var, 
+    df_data
+  ) {
   tab <- table(df_data[[group_var]], df_data[[var_bin_name]])
   if (!all(dim(tab) > 1)) return(NULL)
   test <- tryCatch(chisq.test(tab), error=function(e) fisher.test(tab))
@@ -200,7 +212,7 @@ interpretations <- if (nrow(detailed_residuals) > 0) {
 } else tibble()
 
 
-# Clean depth & difficulty / Sakonera eta zailtasuna garbitu ---------------
+# Clean depth & difficulty ----------------------------------------------------------------------------------------------------------------------------------------------
 
 depth_col <- "Reached aprox. depth (m)"
 stopifnot(depth_col %in% names(df_bin))
@@ -247,9 +259,9 @@ df_bin <- df_bin %>%
   )
 
 
-# Tests: KW + CHI2 (Difficulty) + Residuals (Depth) / Testak: KW + CHI2 (Zailtasuna) + Hondarrak (Sakonera)-------------
+# Tests: KW + CHI2 (Difficulty) + Residuals (Depth) ----------------------------------------------------------------------------------------------------------------------------------------------
 
-# Kruskal-Wallis with interpretation / Kruskal-Wallis interpretazioekin -------------------------------
+# Kruskal-Wallis with interpretation
                    
 kw_results_depth <- tibble(
   Variable=character(), Test=character(), Grouping=character(),
@@ -259,7 +271,7 @@ kw_results_depth <- tibble(
 kw_results_diff  <- kw_results_depth[0,]
 
                    
-# Fixed function without tidy eval; works with strings / Funtzio finkoa ebalu. ordenaturik gabe; hariekin funtzionatzen du ----
+# Fixed function without tidy eval; works with strings
                    
 add_kw <- function(data, value_col, group_col, var_name) {
   # value_col y group_col deben ser nombres de columnas (texto)
@@ -271,19 +283,16 @@ add_kw <- function(data, value_col, group_col, var_name) {
   
   if (nrow(dd) == 0 || length(unique(dd[[group_col]])) < 2) return(NULL)
 
-  
   # Kruskal-Wallis test / KW test-a
   
   f <- as.formula(paste(value_col, "~", group_col))
   fm <- suppressWarnings(stats::kruskal.test(f, data = dd))
 
-  
   # Median per group / Mediana taldeka
   
   med_by_grp <- tapply(dd[[value_col]], dd[[group_col]], median, na.rm = TRUE)
   max_cat <- names(which.max(med_by_grp))
   min_cat <- names(which.min(med_by_grp))
-
   
   # Interpretation / Interpretazioa
   
@@ -302,14 +311,23 @@ add_kw <- function(data, value_col, group_col, var_name) {
     Direction = direction
   )
 }
-
                    
 # Run Kruskal-Wallis tests / KW test-a burutu -------------------------
 
 kw_results_depth <- bind_rows(
   kw_results_depth,
-  add_kw(df_bin, "Depth_m", "Region", "Depth_m"),
-  add_kw(df_bin, "Depth_m", "Phase_clean", "Depth_m")
+  add_kw(
+    df_bin, 
+    "Depth_m", 
+    "Region", 
+    "Depth_m"
+  ),
+  add_kw(
+    df_bin, 
+    "Depth_m", 
+    "Phase_clean", 
+    "Depth_m"
+  )
 )
 
 kw_results_diff <- bind_rows(
@@ -329,7 +347,7 @@ kw_results_diff <- bind_rows(
 )
 
                    
-# Chi² Difficulty (factor) with Fisher fallback + residuals / Zailtasunen Chi karratu + Fisher fallbak + hondarrak -------
+# Chi² Difficulty (factor) with Fisher fallback + residuals ----------------------------------------------------------------------------------------------------------------------------------------------
 
 assoc_results <- tibble(
   Variable=character(), Test=character(), Grouping=character(),
@@ -354,8 +372,7 @@ run_diff_chi2 <- function(group_var) {
     factor(as.character(x$Difficulty_fac), levels = diff_levels_fixed)
   )
   
-
-  # Remove empty rows/columns before testing / Kendu lerro/zutabe hutsak probak egin aurretik
+# Remove empty rows/columns before testing 
   
   if (any(rowSums(tab) == 0) || any(colSums(tab) == 0)) {
     tab_test <- tab[rowSums(tab) > 0, , drop = FALSE]
@@ -365,13 +382,18 @@ run_diff_chi2 <- function(group_var) {
   }
   if (!all(dim(tab_test) > 1)) return(NULL)
   
-  
-  # Chi² test with fallback to Fisher / Chi² proba Fisherren aurka
+ # Chi² test with fallback to Fisher
   
   test <- tryCatch(suppressWarnings(chisq.test(tab_test)), error=function(e) fisher.test(tab_test))
   
   # Build complete residual table
-  diff_levels_fixed <- c("Very Low","Low","Medium","Hard","Very Hard")
+  diff_levels_fixed <- c(
+    "Very Low",
+    "Low",
+    "Medium",
+    "Hard",
+    "Very Hard"
+  )
   rows_levels <- sort(unique(na.omit(df_bin[[group_var]])))
   full_grid <- expand.grid(Category = rows_levels, Value = diff_levels_fixed)
   
@@ -385,32 +407,50 @@ run_diff_chi2 <- function(group_var) {
       mutate(Category = as.character(Category), Value = as.character(Value))
     
     res_tbl <- full_grid %>%
-      left_join(res_tbl, by = c("Category","Value")) %>%
+      left_join(
+        res_tbl, 
+        by = c("Category","Value")
+      ) %>%
       mutate(
         Evidence = "Difficulty",
-        Test = ifelse(group_var=="Phase_clean","Phase","Region"),
+        Test = ifelse(
+          group_var=="Phase_clean",
+          "Phase",
+          "Region"
+        ),
         Direction = case_when(
           Residual >=  2  ~ "Positive (more than expected)",
           Residual <= -2  ~ "Negative (less presence than expected)",
           TRUE            ~ "No clear association"
         ),
-        Es_Significant = ifelse(!is.na(Residual) & abs(Residual) >= 2, "Yes", "No")
+        Es_Significant = ifelse(
+          !is.na(Residual) & abs(Residual) >= 2, 
+          "Yes", 
+          "No"
+        )
       )
   } else {
     full_grid <- full_grid %>%
-      mutate(Category = as.character(Category), Value = as.character(Value))
+      mutate(
+        Category = as.character(Category), 
+        Value = as.character(Value)
+      )
     res_tbl <- full_grid %>%
       mutate(
-        Residual = NA, Evidence = "Difficulty",
-        Test = ifelse(group_var=="Phase_clean","Phase","Region"),
+        Residual = NA, 
+        Evidence = "Difficulty",
+        Test = ifelse(
+          group_var=="Phase_clean",
+          "Phase",
+          "Region"
+        ),
         Direction = "No data", Es_Significant = "No"
       )
   }
   
   detailed_residuals_diff[[length(detailed_residuals_diff)+1]] <<- res_tbl
-
                    
-  # General direction / Norabide orokorra
+  # General direction
                    
   direction <- effect_none()
   if (exists("res_tbl") && nrow(res_tbl) > 0 && any(!is.na(res_tbl$Residual))) {
@@ -423,36 +463,66 @@ run_diff_chi2 <- function(group_var) {
       } else effect_none()
     }
   }
-
-                   
-  # Cramer's V / Cramer-en V
+                  
+  # Cramer's V
                    
   cv <- tryCatch(DescTools::CramerV(tab_test, conf.level = NA), error=function(e) NA)
   
   tibble(
     Variable = "Difficulty_fac",
     Test = "Chi-square",
-    Grouping = ifelse(group_var=="Phase_clean","Phase","Region"),
+    Grouping = ifelse(
+      group_var=="Phase_clean",
+      "Phase",
+      "Region"
+    ),
     p_value = unname(test$p.value),
-    Assoc = ifelse(is.na(cv), NA, sprintf("Cramer's V = %.3f", cv)),
-    Significant = ifelse(test$p.value < 0.05, "Significant", "No Significant"),
+    Assoc = ifelse(
+      is.na(cv), 
+      NA, 
+      sprintf(
+        "Cramer's V = %.3f", 
+        cv
+      )
+    ),
+    Significant = ifelse(
+      test$p.value < 0.05, 
+      "Significant", 
+      "No Significant"
+    ),
     Max_category = rownames(tab_test)[which.max(rowSums(tab_test))],
     Direction = direction
   )
 }
 
-assoc_results <- bind_rows(run_diff_chi2("Region"), run_diff_chi2("Phase_clean"))
+assoc_results <- bind_rows(
+  run_diff_chi2("Region"), 
+  run_diff_chi2("Phase_clean")
+)
 detailed_residuals_diff <- if (length(detailed_residuals_diff)>0) bind_rows(detailed_residuals_diff) else tibble()
-
   
-# Residuals for DEPTH (z-score per group) / Sakontasunetarako hondarrak (z-score taldeka) ------------------------------
+# Residuals for DEPTH (z-score per group) ----------------------------------------------------------------------------------------------------------------------------------------------
                  
 mk_depth_residuals <- function(group_var, group_label) {
-  dat <- df_bin %>% filter(!is.na(Depth_m), !is.na(.data[[group_var]]))
+  dat <- df_bin %>% filter(
+    !is.na(Depth_m), 
+    !is.na(.data[[group_var]])
+  )
   if (nrow(dat) == 0) return(NULL)
-  m_grp <- tapply(dat$Depth_m, dat[[group_var]], mean, na.rm=TRUE)
-  m_all <- mean(dat$Depth_m, na.rm=TRUE)
-  sd_all <- sd(dat$Depth_m, na.rm=TRUE)
+  m_grp <- tapply(
+    dat$Depth_m, 
+    dat[[group_var]], 
+    mean, 
+    na.rm=TRUE
+  )
+  m_all <- mean(
+    dat$Depth_m, 
+    na.rm=TRUE
+  )
+  sd_all <- sd(
+    dat$Depth_m, 
+    na.rm=TRUE
+  )
   if (is.na(sd_all) || sd_all == 0) return(NULL)
   z_grp <- (m_grp - m_all) / sd_all
   tibble(
@@ -472,34 +542,70 @@ mk_depth_residuals <- function(group_var, group_label) {
     )
 }
 detailed_residuals_depth <- bind_rows(
-  mk_depth_residuals("Region", "Region"),
-  mk_depth_residuals("Phase_clean", "Phase")
+  mk_depth_residuals(
+    "Region", 
+    "Region"
+  ),
+  mk_depth_residuals(
+    "Phase_clean", 
+    "Phase"
+  )
 )
-
                  
-# Interpretations (only significant residuals) / Interpretazioak (bakarrik hondar esanguratsuetan) --------------------
+# Interpretations (only significant residuals) ----------------------------------------------------------------------------------------------------------------------------------------------
                  
 interpretations_difficulty <- if (nrow(detailed_residuals_diff) > 0) {
-  cols <- c("Evidence", "Test", "Category", "Residual", "Direction")
+  cols <- c(
+    "Evidence", 
+    "Test", 
+    "Category", 
+    "Residual", 
+    "Direction"
+  )
   cols <- cols[cols %in% names(detailed_residuals_diff)]
   detailed_residuals_diff %>%
     filter(Es_Significant == "Yes") %>%
     dplyr::select(dplyr::all_of(cols)) %>%
-    arrange(dplyr::across(all_of(intersect(c("Test"), names(.)))), desc(Residual))
+    arrange(
+      dplyr::across(
+        all_of(
+          intersect(
+            c("Test"), 
+            names(.)
+          )
+        )
+      ), 
+      desc(Residual)
+    )
 } else tibble()
 
 interpretations_depth <- if (nrow(detailed_residuals_depth) > 0) {
-  cols <- c("Evidence", "Test", "Category", "Residual", "Direction")
+  cols <- c(
+    "Evidence", 
+    "Test", 
+    "Category",
+    "Residual", 
+    "Direction"
+  )
   cols <- cols[cols %in% names(detailed_residuals_depth)]
   detailed_residuals_depth %>%
     filter(Es_Significant == "Yes") %>%
     dplyr::select(dplyr::all_of(cols)) %>%
-    arrange(dplyr::across(all_of(intersect(c("Test"), names(.)))), desc(Residual))
+    arrange(
+      dplyr::across(
+        all_of(
+          intersect(
+            c("Test"), 
+            names(.)
+          )
+        )
+      ), 
+      desc(Residual)
+    )
 } else tibble()
 
-
                  
-# Create Excel -a Sortu --------------------------------------
+# Create Excel ----------------------------------------------------------------------------------------------------------------------------------------------
 
 wb <- createWorkbook()
 addWorksheet(wb,"Chi2_Results")
@@ -512,9 +618,6 @@ addWorksheet(wb,"Interpretations_Difficulty")
 addWorksheet(wb,"Depth_KW")
 addWorksheet(wb,"Residuals_Depth")
 addWorksheet(wb,"Interpretations_Depth")
-
-
-# write data / datuak idatzi
                  
 safe_select <- function(df, cols) {
   cols <- cols[cols %in% names(df)]
@@ -618,268 +721,666 @@ saveWorkbook(
   overwrite = TRUE
 )
 
-
-# Heatmaps (orignals) / Berotasun mapak (originalak) -------------------------------
-
+# Heatmaps (orignals) ----------------------------------------------------------------------------------------------------------------------------------------------
                  
-## Proportions Region x Evidence / Proportzioak Eskualdeak x Ebidentziak
+## Proportions Region x Evidence
                  
 mat_region <- df_bin %>%
   group_by(Region) %>%
-  summarise(across(all_of(evidences), ~ mean(.==1, na.rm=TRUE)), .groups="drop") %>%
+  summarise(
+    across(
+      all_of(evidences), 
+      ~ mean(
+        .==1, 
+        na.rm=TRUE
+      )
+    ), 
+    .groups="drop"
+  ) %>%
   column_to_rownames("Region")
 if (nrow(mat_region) > 0) {
-  png(file.path(plot_dir,"Heatmap_evidences_Region.png"), width=2400, height=1800, res=300)
-  pheatmap(as.matrix(mat_region), cluster_rows=TRUE, cluster_cols=TRUE,
-           show_rownames=TRUE, show_colnames=TRUE, fontsize_row=12, fontsize_col=10,
-           angle_col=45, main="Proportion of evidences by region")
+  png(
+    file.path(
+      plot_dir,
+      "Heatmap_evidences_Region.png"
+    ), 
+    width=2400, 
+    height=1800, 
+    res=300
+  )
+  pheatmap(
+    as.matrix(mat_region), 
+    cluster_rows=TRUE, 
+    cluster_cols=TRUE,
+    show_rownames=TRUE, 
+    show_colnames=TRUE, 
+    fontsize_row=12, 
+    fontsize_col=10,
+    angle_col=45, 
+    main="Proportion of evidences by region"
+  )
   dev.off()
 }
-
                  
-## Proportions Phase x Evidence / Proportzioak Faseak x Ebidentziak
+## Proportions Phase x Evidence
                  
 mat_phase <- df_bin %>%
   filter(!is.na(Phase_clean)) %>%
   group_by(Phase_clean) %>%
-  summarise(across(all_of(evidences), ~ mean(.==1, na.rm=TRUE)), .groups="drop") %>%
-  mutate(order_num = as.integer(Phase_clean)) %>% arrange(order_num) %>%
+  summarise(
+    across(
+      all_of(evidences), 
+      ~ mean(
+        .==1, 
+        na.rm=TRUE)
+    ), 
+    .groups="drop"
+  ) %>%
+  mutate(
+    order_num = as.integer(Phase_clean)
+  ) %>% arrange(order_num) %>%
   as.data.frame()
 rownames(mat_phase) <- mat_phase$Phase_clean
-mat_phase <- mat_phase %>% dplyr::select(-Phase_clean, -order_num)
+mat_phase <- mat_phase %>% dplyr::select(
+  -Phase_clean, 
+  -order_num
+)
 if (nrow(mat_phase) > 0) {
-  png(file.path(plot_dir,"Heatmap_evidences_Phase.png"), width=2400, height=1800, res=300)
-  pheatmap(as.matrix(mat_phase), cluster_rows=FALSE, cluster_cols=TRUE,
-           show_rownames=TRUE, show_colnames=TRUE, fontsize_row=12, fontsize_col=10,
-           angle_col=45, main="Proportion of evidences by phase")
+  png(
+    file.path(
+      plot_dir,
+      "Heatmap_evidences_Phase.png"
+    ), 
+    width=2400, 
+    height=1800, 
+    res=300
+  )
+  pheatmap(
+    as.matrix(mat_phase), 
+    cluster_rows=FALSE, 
+    cluster_cols=TRUE,
+    show_rownames=TRUE, 
+    show_colnames=TRUE, 
+    fontsize_row=12, 
+    fontsize_col=10,
+    angle_col=45, 
+    main="Proportion of evidences by phase"
+  )
   dev.off()
 }
 
 
-# Residual Heatmaps (Presence = 1) / Hondarrezko berotasun mapak (Presentzia = 1)
+# Residual Heatmaps (Presence = 1)
 
 if (nrow(detailed_residuals) > 0) {
   # PHASE / FASEAK ----------
   res_sig_phase <- detailed_residuals %>%
-    filter(Test == "Phase", !is.na(Category), Its_presence) %>%
-    mutate(Category = trimws(toupper(Category))) %>%
+    filter(
+      Test == "Phase", 
+      !is.na(Category), 
+      Its_presence
+    ) %>%
+    mutate(
+      Category = trimws(toupper(Category))) %>%
     filter(Category %in% roman_levels) %>%
-    mutate(Category = factor(Category, levels = roman_levels, ordered = TRUE))
+    mutate(
+      Category = factor(
+        Category, 
+        levels = roman_levels, 
+        ordered = TRUE)
+    )
   
   if (nrow(res_sig_phase) > 0) {
-    mat_res_phase <- dcast(res_sig_phase, Category ~ Evidence, value.var = "Residual", fun.aggregate = mean)
+    mat_res_phase <- dcast(
+      res_sig_phase, 
+      Category ~ Evidence, 
+      value.var = "Residual", 
+      fun.aggregate = mean
+    )
 
-    
-    # Correct order by Roman numerals / Ordena zuzena zenbaki erromatarren arabera
+    # Correct order by Roman numerals
     
     mat_res_phase <- mat_res_phase %>%
       mutate(Category = as.character(Category)) %>%
-      arrange(factor(Category, levels = roman_levels))
-
+      arrange(
+        factor(
+          Category, 
+          levels = roman_levels
+        )
+      )
     
-    # Fix row names and remove the Category column / Errenkadaren izenak finkatu eta Category zutabea kendu
+    # Fix row names and remove the Category column 
     
     rownames(mat_res_phase) <- mat_res_phase$Category
-    mat_res_phase <- mat_res_phase[, -1, drop = FALSE]
+    mat_res_phase <- mat_res_phase[
+      , 
+      -1, 
+      drop = FALSE
+    ]
     
     if (nrow(mat_res_phase) > 0) {
-      png(file.path(plot_dir, "Heatmap_Residuals_Presence_Phase.png"), width = 2400, height = 1800, res = 300)
-      pheatmap(as.matrix(mat_res_phase),
-               cluster_rows = FALSE, cluster_cols = TRUE,
-               show_rownames = TRUE, show_colnames = TRUE,
-               fontsize_row = 10, fontsize_col = 9, angle_col = 45,
-               color = colorRampPalette(c("blue", "white", "red"))(50),
-               main = "Residuals (PRESENCE) Chi² per phase")
+      png(
+        file.path(
+          plot_dir, 
+          "Heatmap_Residuals_Presence_Phase.png"
+        ), 
+        width = 2400, 
+        height = 1800, 
+        res = 300
+      )
+      pheatmap(
+        as.matrix(mat_res_phase),
+        cluster_rows = FALSE, 
+        cluster_cols = TRUE,
+        show_rownames = TRUE, 
+        show_colnames = TRUE,
+        fontsize_row = 10, 
+        fontsize_col = 9, 
+        angle_col = 45,
+        color = colorRampPalette(
+          c(
+            "blue", 
+            "white", 
+            "red")
+        )
+        (50),
+        main = "Residuals (PRESENCE) Chi² per phase"
+      )
       dev.off()
     }
   }
   
   
-  # Region / Eskualdeak -----------------------------------------------------------------
+  # Region ----------------------------------------------------------------------------------------------------------------------------------------------
   
-  res_sig_region <- detailed_residuals %>% filter(Test == "Region", Its_presence)
+  res_sig_region <- detailed_residuals %>% filter(
+    Test == "Region", 
+    Its_presence
+  )
   if (nrow(res_sig_region) > 0) {
-    mat_res_region <- dcast(res_sig_region, Category ~ Evidence, value.var="Residual", fun.aggregate=mean)
+    mat_res_region <- dcast(
+      res_sig_region, 
+      Category ~ Evidence, 
+      value.var="Residual", 
+      fun.aggregate=mean
+    )
     rownames(mat_res_region) <- mat_res_region$Category
-    mat_res_region <- mat_res_region[,-1, drop=FALSE]
-    png(file.path(plot_dir,"Heatmap_Residuals_Presence_Region.png"), width=2400, height=1800, res=300)
-    pheatmap(as.matrix(mat_res_region), cluster_rows = TRUE, cluster_cols = TRUE,
-             show_rownames = TRUE, show_colnames = TRUE, fontsize_row = 10, fontsize_col = 9,
-             angle_col = 45, color = colorRampPalette(c("blue","white","red"))(50),
-             main = "Residuals (PRESENCE) Chi² per Region")
+    mat_res_region <- mat_res_region[
+      2,
+      -1, 
+      drop=FALSE
+    ]
+    png(
+      file.path(
+        plot_dir,
+        "Heatmap_Residuals_Presence_Region.png"
+      ), 
+      width=2400, 
+      height=1800, 
+      res=300
+    )
+    pheatmap(
+      as.matrix(mat_res_region), 
+      cluster_rows = TRUE, 
+      cluster_cols = TRUE,
+      show_rownames = TRUE, 
+      show_colnames = TRUE, 
+      fontsize_row = 10, 
+      fontsize_col = 9,
+      angle_col = 45, 
+      color = colorRampPalette(
+        c(
+          "blue",
+          "white",
+          "red"
+        )
+      )
+      (50),
+      main = "Residuals (PRESENCE) Chi² per Region"
+    )
     dev.off()
   }
 }
-
                  
 
-# CORRESPONDENCE ANALYSIS (CA) / KORRESPONDENTZIA ANALISIAK ------------------------------
+# CORRESPONDENCE ANALYSIS (CA) ----------------------------------------------------------------------------------------------------------------------------------------------
 
 tab_ca_region <- df_bin %>%
   group_by(Region) %>%
-  summarise(across(all_of(evidences), ~ sum(.==1, na.rm=TRUE)), .groups="drop") %>%
+  summarise(
+    across(
+      all_of(evidences), 
+      ~ sum(
+        .==1, 
+        na.rm=TRUE
+      )
+    ), 
+    .groups="drop"
+  ) %>%
   column_to_rownames("Region")
-tab_ca_region <- tab_ca_region[rowSums(tab_ca_region)>0, colSums(tab_ca_region)>0, drop=FALSE]
+tab_ca_region <- tab_ca_region[
+  rowSums(tab_ca_region)>0, 
+  colSums(tab_ca_region)>0, 
+  drop=FALSE
+]
 if (nrow(tab_ca_region)>1 && ncol(tab_ca_region)>1) {
-  ca_reg <- CA(tab_ca_region, graph=FALSE)
-  pdf(file.path(plot_dir,"CA_Regions_evidences.pdf"), width=9, height=7)
-  print(fviz_ca_biplot(ca_reg, repel=TRUE, ggtheme=theme_minimal()))
+  ca_reg <- CA(
+    tab_ca_region, 
+    graph=FALSE
+  )
+  pdf(
+    file.path(
+      plot_dir,
+      "CA_Regions_evidences.pdf"
+    ), 
+    width=9, 
+    height=7
+  )
+  print(
+    fviz_ca_biplot(
+      ca_reg, 
+      repel=TRUE, 
+      ggtheme=theme_minimal()
+    )
+  )
   dev.off()
 }
 
 tab_ca_phase <- df_bin %>%
   filter(!is.na(Phase_clean)) %>%
   group_by(Phase_clean) %>%
-  summarise(across(all_of(evidences), ~ sum(.==1, na.rm=TRUE)), .groups="drop") %>%
+  summarise(
+    across(
+      all_of(evidences), 
+      ~ sum(
+        .==1, 
+        na.rm=TRUE
+      )
+    ), 
+    .groups="drop"
+  ) %>%
   mutate(order_num = as.integer(Phase_clean)) %>%
   arrange(order_num)
 
 rownames(tab_ca_phase) <- tab_ca_phase$Phase_clean
-tab_ca_phase <- tab_ca_phase %>% dplyr::select(-Phase_clean, -order_num)
-tab_ca_phase <- tab_ca_phase[rowSums(tab_ca_phase)>0, colSums(tab_ca_phase)>0, drop=FALSE]
+tab_ca_phase <- tab_ca_phase %>% dplyr::select(
+  -Phase_clean, 
+  -order_num
+)
+tab_ca_phase <- tab_ca_phase[
+  rowSums(tab_ca_phase)>0, 
+  colSums(tab_ca_phase)>0, 
+  drop=FALSE
+]
 if (nrow(tab_ca_phase)>1 && ncol(tab_ca_phase)>1) {
-  ca_ph <- CA(tab_ca_phase, graph=FALSE)
-  pdf(file.path(plot_dir,"CA_Phases_evidences.pdf"), width=9, height=7)
-  print(fviz_ca_biplot(ca_ph, repel=TRUE, ggtheme=theme_minimal()))
+  ca_ph <- CA(
+    tab_ca_phase, 
+    graph=FALSE
+  )
+  pdf(
+    file.path(
+      plot_dir,
+      "CA_Phases_evidences.pdf"
+    ), 
+    width=9, 
+    height=7
+  )
+  print(
+    fviz_ca_biplot(
+      ca_ph, 
+      repel=TRUE, 
+      ggtheme=theme_minimal()
+    )
+  )
   dev.off()
 }
 
-
-# MULTIPLE CORRESPONDENCE ANALYSIS (MCA) / KORRESPONDENTZIA ANALISI MULTIPLOA #datu koalitatiboetarako ------------------
+# MULTIPLE CORRESPONDENCE ANALYSIS (MCA) ----------------------------------------------------------------------------------------------------------------------------------------------
 
 # Create a version of the dataset where evidences are converted to factors
-# Datu-basearen bertsio bat sortu, non ebidentziak faktore bihurtzen diren.
 
 mca_df <- df_bin %>%
-  mutate(across(all_of(evidences), ~ factor(ifelse(.==1, "Yes", "No"))))
+  mutate(
+    across(
+      all_of(evidences), 
+      ~ factor(
+        ifelse(
+          .==1, 
+          "Yes", 
+          "No")
+      )
+    )
+  )
 
                  
 # Select only the evidences plus grouping variables (safe and explicit)
-# Aukeratu ebidentziak eta aldagaiak (seguruak eta esplizituak)
                  
 mca_df <- mca_df %>%
-  dplyr::select(dplyr::all_of(c(evidences, "Region", "Phase_clean")))
+  dplyr::select(
+    dplyr::all_of(
+      c(
+        evidences, 
+        "Region", 
+        "Phase_clean"
+      )
+    )
+  )
 
-const_cols <- names(which(sapply(mca_df[evidences], nlevels) < 2))
-active_vars <- setdiff(evidences, const_cols)
+const_cols <- names(
+  which(
+    sapply(
+      mca_df[evidences], 
+      nlevels
+    ) < 2
+  )
+)
+active_vars <- setdiff(
+  evidences, 
+  const_cols
+)
 if (length(active_vars) >= 2) {
   quali_sup_idx <- (length(active_vars)+1):(length(active_vars)+2)
-  mca_run <- MCA(mca_df[, c(active_vars,"Region","Phase_clean")], quali.sup=quali_sup_idx, graph=FALSE)
-  pdf(file.path(plot_dir,"MCA_evidences.pdf"), width=9, height=7)
-  print(fviz_mca_biplot(mca_run, repel=TRUE, ggtheme=theme_minimal()))
+  mca_run <- MCA(
+    mca_df[
+      , 
+      c(
+        active_vars,
+        "Region",
+        "Phase_clean"
+      )
+    ], 
+    quali.sup=quali_sup_idx, 
+    graph=FALSE
+  )
+  pdf(
+    file.path(
+      plot_dir,
+      "MCA_evidences.pdf"
+    ), 
+    width=9, 
+    height=7
+  )
+  print(
+    fviz_mca_biplot(
+      mca_run, 
+      repel=TRUE, 
+      ggtheme=theme_minimal()
+    )
+  )
   dev.off()
 }
 
 
-# PLOTS -----------------------------------------------------------------
+# PLOTS ----------------------------------------------------------------------------------------------------------------------------------------------
 
-# Depth: violin/boxplots
-                 
+# Combined violin + boxplot helper
+plot_violin_box <- function(
+  data, 
+  x_col, 
+  y_col, 
+  fill_pal, 
+  x_lab, 
+  y_lab, 
+  title,
+  y_scale = NULL
+) {
+  g <- data %>%
+    filter(
+      !is.na(.data[[x_col]]), 
+      !is.na(.data[[y_col]])
+    ) %>%
+    ggplot(
+      aes(
+      x = .data[[x_col]], 
+      y = .data[[y_col]], 
+      fill = .data[[x_col]])
+    ) +
+    geom_violin(
+      trim = FALSE, 
+      color = "black", 
+      alpha = 0.85
+    ) +
+    geom_boxplot(
+      width = 0.12, 
+      outlier.shape = NA, 
+      alpha = 0.60
+    ) +
+    scale_fill_manual(
+      values = fill_pal, 
+      guide = "none"
+    ) +
+    labs(
+      x = x_lab, 
+      y = y_lab, 
+      title = title
+    ) +
+    theme_pub
+
+  if (!is.null(y_scale)) g <- g + y_scale
+  g
+}
+
+difficulty_y_scale <- scale_y_continuous(
+  breaks = 1:5,
+  labels = c(
+    "Very Low",
+    "Low",ç
+    "Medium",
+    "Hard",
+    "Very Hard"
+  )
+)
+
+# Depth: violin + boxplot combined
 if (!all(is.na(df_bin$Depth_m))) {
-  g1 <- df_bin %>% filter(!is.na(Depth_m), !is.na(Region)) %>%
-    ggplot(aes(x = Region, y = Depth_m, fill = Region)) +
-    geom_violin(trim=FALSE, color="black") +
-    scale_fill_manual(values = region_pal) +
-    labs(x="Region", y="Reached aprox. depth (m)", title="Depth by Region (Violin)") +
-    theme_pub
-  save_plot("Violin_Depth_by_Region.png", g1, w=11, h=6)
-  
-  g2 <- df_bin %>% filter(!is.na(Depth_m), !is.na(Region)) %>%
-    ggplot(aes(x = Region, y = Depth_m, fill = Region)) +
-    geom_boxplot() +
-    scale_fill_manual(values = region_pal) +
-    labs(x="Region", y="Reached aprox. depth (m)", title="Depth by Region (Boxplot)") +
-    theme_pub
-  save_plot("Boxplot_Depth_by_Region.png", g2, w=11, h=6)
-  
-  g3 <- df_bin %>% filter(!is.na(Depth_m), !is.na(Phase_clean)) %>%
-    ggplot(aes(x = Phase_clean, y = Depth_m, fill = Phase_clean)) +
-    geom_violin(trim=FALSE, color="black") +
-    scale_fill_manual(values = phase_pal) +
-    labs(x="Phase", y="Reached aprox. depth (m)", title="Depth by Phase (Violin)") +
-    theme_pub
-  save_plot("Violin_Depth_by_Phase.png", g3, w=9, h=6)
-  
-  g4 <- df_bin %>% filter(!is.na(Depth_m), !is.na(Phase_clean)) %>%
-    ggplot(aes(x = Phase_clean, y = Depth_m, fill = Phase_clean)) +
-    geom_boxplot() +
-    scale_fill_manual(values = phase_pal) +
-    labs(x="Phase", y="Reached aprox. depth (m)", title="Depth by Phase (Boxplot)") +
-    theme_pub
-  save_plot("Boxplot_Depth_by_Phase.png", g4, w=9, h=6)
+  g1 <- plot_violin_box(
+    data = df_bin,
+    x_col = "Region",
+    y_col = "Depth_m",
+    fill_pal = region_pal,
+    x_lab = "Region",
+    y_lab = "Reached aprox. depth (m)",
+    title = "Depth by Region"
+  )
+  save_plot(
+    "Violin_Boxplot_Depth_by_Region.png", 
+    g1, 
+    w = 11, 
+    h = 6
+  )
+
+  g2 <- plot_violin_box(
+    data = df_bin,
+    x_col = "Phase_clean",
+    y_col = "Depth_m",
+    fill_pal = phase_pal,
+    x_lab = "Phase",
+    y_lab = "Reached aprox. depth (m)",
+    title = "Depth by Phase"
+  )
+  save_plot(
+    "Violin_Boxplot_Depth_by_Phase.png", 
+    g2, 
+    w = 9, 
+    h = 6
+  )
 }
 
-                 
-# Difficulty: boxplots
-                 
+# Difficulty: violin + boxplot combined
 if (!all(is.na(df_bin$Difficulty_num))) {
-  g5 <- df_bin %>% filter(!is.na(Difficulty_num), !is.na(Region)) %>%
-    ggplot(aes(x = Region, y = Difficulty_num, fill = Region)) +
-    geom_boxplot() +
-    scale_y_continuous(breaks = 1:5, labels = c("Very Low","Low","Medium","Hard","Very Hard")) +
-    scale_fill_manual(values = region_pal) +
-    labs(x="Region", y="Level of difficulty of access", title="Difficulty by Region (Boxplot)") +
-    theme_pub
-  save_plot("Boxplot_Difficulty_by_Region.png", g5, w=11, h=6)
-  
-  g6 <- df_bin %>% filter(!is.na(Difficulty_num), !is.na(Phase_clean)) %>%
-    ggplot(aes(x = Phase_clean, y = Difficulty_num, fill = Phase_clean)) +
-    geom_boxplot() +
-    scale_y_continuous(breaks = 1:5, labels = c("Very Low","Low","Medium","Hard","Very Hard")) +
-    scale_fill_manual(values = phase_pal) +
-    labs(x="Phase", y="Level of difficulty of access", title="Difficulty by Phase (Boxplot)") +
-    theme_pub
-  save_plot("Boxplot_Difficulty_by_Phase.png", g6, w=9, h=6)
+  g3 <- plot_violin_box(
+    data = df_bin,
+    x_col = "Region",
+    y_col = "Difficulty_num",
+    fill_pal = region_pal,
+    x_lab = "Region",
+    y_lab = "Level of difficulty of access",
+    title = "Difficulty by Region",
+    y_scale = difficulty_y_scale
+  )
+  save_plot(
+    "Violin_Boxplot_Difficulty_by_Region.png", 
+    g3, 
+    w = 11, 
+    h = 6
+  )
+
+  g4 <- plot_violin_box(
+    data = df_bin,
+    x_col = "Phase_clean",
+    y_col = "Difficulty_num",
+    fill_pal = phase_pal,
+    x_lab = "Phase",
+    y_lab = "Level of difficulty of access",
+    title = "Difficulty by Phase",
+    y_scale = difficulty_y_scale
+  )
+  save_plot(
+    "Violin_Boxplot_Difficulty_by_Phase.png", 
+    g4, 
+    w = 9,
+    h = 6
+  )
 } else if (!all(is.na(df_bin$Difficulty_fac))) {
-  g7 <- df_bin %>% filter(!is.na(Difficulty_fac), !is.na(Phase_clean)) %>%
-    group_by(Phase_clean, Difficulty_fac) %>% summarise(n=n(), .groups="drop") %>%
-    ggplot(aes(x=Phase_clean, y=n, fill=Phase_clean)) +
-    geom_col(position="fill") + scale_fill_manual(values = phase_pal) +
-    labs(x="Phase", y="Share", fill="Phase", title="Difficulty composition by Phase") +
+  g5 <- df_bin %>% filter(
+    !is.na(Difficulty_fac), 
+    !is.na(Phase_clean)
+  ) %>%
+    group_by(
+      Phase_clean, 
+      Difficulty_fac
+    ) %>% summarise(
+      n=n(), 
+      .groups="drop"
+    ) %>%
+    ggplot(
+      aes(
+        x=Phase_clean, 
+        y=n, 
+        fill=Phase_clean
+      )
+    ) +
+    geom_col(position="fill") +
+    scale_fill_manual(values = phase_pal) +
+    labs(
+      x="Phase", 
+      y="Share", 
+      fill="Phase", 
+      title="Difficulty composition by Phase"
+    ) +
     theme_pub
-  save_plot("Bars_Difficulty_by_Phase.png", g7, w=9, h=6)
-  
-  g8 <- df_bin %>% filter(!is.na(Difficulty_fac), !is.na(Region)) %>%
-    group_by(Region, Difficulty_fac) %>% summarise(n=n(), .groups="drop") %>%
-    ggplot(aes(x=Region, y=n, fill=Region)) +
-    geom_col(position="fill") + scale_fill_manual(values = region_pal) +
-    labs(x="Region", y="Share", fill="Region", title="Difficulty composition by Region") +
+  save_plot(
+    "Bars_Difficulty_by_Phase.png", 
+    g5, 
+    w=9, 
+    h=6
+  )
+
+  g6 <- df_bin %>% filter(
+    !is.na(Difficulty_fac), 
+    !is.na(Region)
+  ) %>%
+    group_by(
+      Region, 
+      Difficulty_fac
+    ) %>% summarise(
+      n=n(), 
+      .groups="drop"
+    ) %>%
+    ggplot(
+      aes(
+        x=Region, 
+        y=n, 
+        fill=Region
+      )
+    ) +
+    geom_col(position="fill") +
+    scale_fill_manual(values = region_pal) +
+    labs(
+      x="Region", 
+      y="Share", 
+      fill="Region", 
+      title="Difficulty composition by Region"
+    ) +
     theme_pub
-  save_plot("Bars_Difficulty_by_Region.png", g8, w=11, h=6)
+  save_plot(
+    "Bars_Difficulty_by_Region.png", 
+    g6, 
+    w=11, 
+    h=6
+  )
 }
 
+
+# HEATMAPS: Mean Depth by Region/Phase
                  
-
-# HEATMAPS: Mean Depth by Region/Phase / BEROTASUN MAPAK: Zailtasun Mediak Eskualde/Faseka
-
 mat_depth_region <- df_bin %>%
   group_by(Region) %>%
-  summarise(Mean_Depth = mean(Depth_m, na.rm=TRUE), .groups="drop") %>%
+  summarise(
+    Mean_Depth = mean(
+      Depth_m, 
+      na.rm=TRUE
+    ), 
+    .groups="drop"
+  ) %>%
   column_to_rownames("Region")
 if (nrow(mat_depth_region) > 0) {
-  png(file.path(plot_dir,"Heatmap_MeanDepth_Region.png"), width=2000, height=1400, res=300)
-  pheatmap(as.matrix(mat_depth_region), cluster_rows=TRUE, cluster_cols=FALSE,
-           main="Mean Depth by Region", display_numbers=TRUE)
+  png(
+    file.path(
+      plot_dir,
+      "Heatmap_MeanDepth_Region.png"
+    ), 
+    width=2000, 
+    height=1400, 
+    res=300
+  )
+  pheatmap(
+    as.matrix(mat_depth_region), 
+    cluster_rows=TRUE, 
+    cluster_cols=FALSE,
+    main="Mean Depth by Region", 
+    display_numbers=TRUE
+  )
   dev.off()
 }
 
 mat_depth_phase <- df_bin %>%
   filter(!is.na(Phase_clean)) %>%
   group_by(Phase_clean) %>%
-  summarise(Mean_Depth = mean(Depth_m, na.rm = TRUE), .groups = "drop") %>%
-  mutate(order_num = as.integer(Phase_clean)) %>%
+  summarise(
+    Mean_Depth = mean(
+      Depth_m, 
+      na.rm = TRUE
+    ), 
+    .groups = "drop"
+  ) %>%
+  mutate(
+    order_num = as.integer(Phase_clean)
+  ) %>%
   arrange(order_num) %>%
   as.data.frame()
 rownames(mat_depth_phase) <- mat_depth_phase$Phase_clean
 mat_depth_phase <- mat_depth_phase %>%
-  dplyr::select(-Phase_clean, -order_num)
+  dplyr::select(
+    -Phase_clean, 
+    -order_num
+  )
 if (nrow(mat_depth_phase) > 0) {
-  png(file.path(plot_dir, "Heatmap_MeanDepth_Phase.png"), width = 2000, height = 1400, res = 300)
+  png(
+    file.path(
+      plot_dir, 
+      "Heatmap_MeanDepth_Phase.png"
+    ), 
+    width = 2000, 
+    height = 1400, 
+    res = 300
+  )
   pheatmap(
     mat = as.matrix(mat_depth_phase),
-    cluster_rows = FALSE, cluster_cols = FALSE,
+    cluster_rows = FALSE, 
+    cluster_cols = FALSE,
     main = "Mean Depth by Phase",
-    display_numbers = TRUE,
+    display_numbers = TRUE
   )
   dev.off()
 }
