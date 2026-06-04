@@ -60,14 +60,19 @@ project_dir <- normalizePath(
 
 data_dir <- file.path(project_dir, "data")
 output_dir <- file.path(project_dir, "outputs")
-if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+if (!dir.exists(output_dir))
+  
 dir.create(
   output_dir, 
   recursive = TRUE, 
   showWarnings = FALSE
 )
+
 plot_dir <- file.path(output_dir, "Plots")
+
 if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+
 save_plot <- function(
     filename, 
     plot, 
