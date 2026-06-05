@@ -249,11 +249,11 @@ normalize_difficulty <- function(x) {
   x0 <- trimws(as.character(x))  # cleans spaces at start/end
   
   case_when(
-    x0 == "Very Low"  ~ 1,
-    x0 == "Low"       ~ 2,
-    x0 == "Medium"    ~ 3,
-    x0 == "Hard"      ~ 4,
-    x0 == "Very Hard" ~ 5,
+    x0 == "Very Low"  ~ 1, # Min : 2.03 dv according to results from Intxaurbe et al., 2024
+    x0 == "Low"       ~ 2, # Q1 : 23.98 dv according to results from Intxaurbe et al., 2024
+    x0 == "Medium"    ~ 3, # x̄ : 200.76 dv according to results from Intxaurbe et al., 2024
+    x0 == "Hard"      ~ 4, # Q3 :274.09 dv according to results from Intxaurbe et al., 2024
+    x0 == "Very Hard" ~ 5, #MAX:1319.53 dv according to results from Intxaurbe et al., 2024
     TRUE ~ NA_real_   # all other options are discarded
   )
 }
