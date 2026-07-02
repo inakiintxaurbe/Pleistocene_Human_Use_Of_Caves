@@ -43,7 +43,9 @@ roman_levels <- c(
   "VII",
   "VIII",
   "IX",
-  "X"
+  "X",
+  "XI",
+  "XII"
 )
 
 effect_pos <- function(extra="") paste0("Positive (more than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
@@ -112,7 +114,7 @@ df_bin <- df %>%
   })) %>%
   mutate(
     Phase_clean = ifelse(grepl(
-      "^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", 
+      "^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)$", 
       trimws(Phase)), 
       trimws(Phase), 
       NA
