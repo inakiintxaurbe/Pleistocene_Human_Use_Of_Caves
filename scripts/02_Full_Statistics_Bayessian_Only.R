@@ -44,7 +44,9 @@ roman_levels <- c(
   "VII",
   "VIII",
   "IX",
-  "X"
+  "X",
+  "XI",
+  "XII"
 )
 
 effect_pos <- function(extra="") paste0("Positive (more than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
