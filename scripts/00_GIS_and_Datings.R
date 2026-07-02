@@ -355,7 +355,20 @@ all_out$Prob_in_Phase <- sapply(seq_len(nrow(all_out)), function(i){
 # Reorder phases in tables by Roman numeral / Faseak zenbakizko taula erromatarretan berrantolatzea ----
 roman2int <- function(x) {
   x_clean <- gsub("Phase\\s*", "", trimws(x))
-  romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
+  romans <- c(
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "VII",
+    "VIII",
+    "IX",
+    "X",
+    "XI",
+    "XII"
+    )
   match(x_clean, romans)
 }
 
@@ -552,14 +565,14 @@ if (!dir.exists(outdir)) dir.create(outdir)
   )
   
   
-  # Phase II–X
+  # Phases II–XII
   plot_phase_summary(
     draws_rest,
     summary_rest,
-    file.path(outdir, "Phase_summary_Phase_II_to_X.pdf"),
+    file.path(outdir, "Phase_summary_Phase_II_to_XII.pdf"),
     alpha_val = 0.25,
     scale_val = 1.25,
-    title_suffix = " – Phase II–X"
+    title_suffix = " – Phases II–XII"
   )
   
 message("Graphs saved in the 'Plots_results' folder")
@@ -647,9 +660,9 @@ if (!dir.exists(eu_dir)) dir.create(eu_dir)
     make_world_approved_by_phase <- function(df) {
       df_yes <- df %>% dplyr::filter(tolower(Approved) == "yes")
       
-      # Filter only Approved == yes and clean phases (I, II, ... X)
+      # Filter only Approved == yes and clean phases (I, II, ... XII)
       df_yes_clean <- df_yes %>%
-        dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
+        dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)$", Phase))
       
       # Roman numerals to integers converter
             
@@ -700,8 +713,21 @@ if (!dir.exists(eu_dir)) dir.create(eu_dir)
       
       # Roman numeral to integer converter / Zenbaki erromatarretik osoko bihurgailura
       roman2int <- function(x) {
-        romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
-        match(x, romans)  # devuelve índice 1–10 si está en la lista
+        romans <- c(
+          "I",
+          "II",
+          "III",
+          "IV",
+          "V",
+          "VI",
+          "VII",
+          "VIII",
+          "IX",
+          "X",
+          "XI",
+          "XII"
+          )
+        match(x, romans)  
       }
       
       # Data and base map / Datuak eta base mapa
@@ -797,10 +823,10 @@ if (!dir.exists(eu_dir)) dir.create(eu_dir)
                                              base_gamma = 3,
                                              base_cutoff = 0.10) {
       
-      # Filter only Approved == yes and clean phases (I, II, ... X) / Filtratu onartuak eta fase garbituak
+      # Filter only Approved == yes and clean phases (I, II, ... XII) / Filtratu onartuak eta fase garbituak
       df_yes_clean <- df_caves %>%
         dplyr::filter(tolower(Approved) == "yes") %>%
-        dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X)$", Phase))
+        dplyr::filter(grepl("^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)$", Phase))
       
       if (nrow(df_yes_clean) == 0) {
         message("No Approved caves with clean Roman phases found")
@@ -809,7 +835,20 @@ if (!dir.exists(eu_dir)) dir.create(eu_dir)
       
       # Roman numerals to integers converter / Erromatar zki-etatik osoetara bihurketa
       roman2int <- function(x) {
-        romans <- c("I","II","III","IV","V","VI","VII","VIII","IX","X")
+        romans <- c(
+          "I",
+          "II",
+          "III",
+          "IV",
+          "V",
+          "VI",
+          "VII",
+          "VIII",
+          "IX",
+          "X",
+          "XI",
+          "XII"
+          )
         match(x, romans)
       }
       
