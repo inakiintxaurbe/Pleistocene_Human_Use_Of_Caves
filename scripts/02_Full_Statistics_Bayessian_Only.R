@@ -53,27 +53,23 @@ effect_pos <- function(extra="") paste0("Positive (more than expected", ifelse(e
 effect_neg <- function(extra="") paste0("Negative (less than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
 effect_none <- function() "No clear association"
 
-project_dir <- normalizePath(
-  file.path(
-    getwd(), 
-    ".."
-  ), 
-  winslash = "/"
+base_dir <- dirname(getwd())
+
+output_dir <- file.path(
+  base_dir,
+  "outputs"
 )
 
-data_dir <- file.path(project_dir, "data")
+plot_dir <- file.path(
+  output_dir,
+  "Plots_Bayesian_Only"
+)
 
-output_dir <- file.path(project_dir, "outputs")
-
-if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 dir.create(
-  output_dir, 
-  recursive = TRUE, 
+  plot_dir,
+  recursive = TRUE,
   showWarnings = FALSE
 )
-
-plot_dir <- file.path(output_dir, "Plots_Bayesian_Only")
-if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
 save_plot <- function(
     filename, 
@@ -92,9 +88,21 @@ save_plot <- function(
   )
 }
 
-file_path <- file.path(data_dir, "Table-Data-Base.xlsx")
+tmpfile <- file.path(
+  tempdir(),
+  "Table_DATA.xlsx"
+)
 
-df_caves <- read_excel(file_path, sheet = "Caves") %>% 
+download.file(
+  "https://raw.githubusercontent.com/inakiintxaurbe/Pleistocene_Human_Use_Of_Caves/refs/heads/master/data/Table-Data-Base.xlsx",
+  destfile = tmpfile,
+  mode = "wb"
+)
+
+df_caves <- readxl::read_excel(
+  tmpfile, 
+  sheet = "Caves"
+  ) %>% 
   filter(tolower(Approved) == "yes")
 
 df_bayes <- read_excel(
@@ -1068,7 +1076,7 @@ plot_violin_box <- function(
         fill = .data[[x_col]])
     ) +
     geom_violin(
-      trim = FALSE, 
+      trim = TRUE, 
       color = "black", 
       alpha = 0.85
     ) +
@@ -1100,7 +1108,8 @@ difficulty_y_scale <- scale_y_continuous(
     "Medium",
     "Hard",
     "Very Hard"
-  )
+  ),
+  limits = c(1,5)
 )
 
 # Depth: violin + boxplot combined

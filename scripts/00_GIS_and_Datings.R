@@ -105,27 +105,32 @@ best_phase_interval_from_pairs <- function(df_phase, max_width=10000, k=2) {
 
 round0 <- function(x) round(x, 0)
 
-project_dir <- normalizePath(
-  file.path(
-    getwd(), 
-    ".."
-  ), 
-  winslash = "/"
+base_dir <- dirname(getwd())
+
+output_dir <- file.path(
+  base_dir,
+  "outputs"
 )
 
-data_dir <- file.path(project_dir, "data")
-output_dir <- file.path(project_dir, "outputs")
-
 dir.create(
-  output_dir, 
-  recursive = TRUE, 
+  output_dir,
+  recursive = TRUE,
   showWarnings = FALSE
 )
 
-file_path <- file.path(data_dir, "Table-Data-Base.xlsx")
+tmpfile <- file.path(
+  tempdir(),
+  "Table_DATA.xlsx"
+)
 
-dat <- read_excel(
-  file_path, 
+download.file(
+  "https://raw.githubusercontent.com/inakiintxaurbe/Pleistocene_Human_Use_Of_Caves/refs/heads/master/data/Table-Data-Base.xlsx",
+  destfile = tmpfile,
+  mode = "wb"
+)
+
+dat <- readxl::read_excel(
+  tmpfile,
   sheet = "Datings"
 )
 
@@ -583,7 +588,7 @@ message("Graphs saved in the 'Plots_results' folder")
   # (per-phase maps with basemap) / (fase-bakotxeko mapak basemapekin)
 
 # Read all caves from the database / koba guztiak leiru databasetik
-df_caves <- read_excel(file_path, sheet = "Caves")
+df_caves <- read_excel(tmpfile, sheet = "Caves")
 df_caves$latitude  <- as.numeric(df_caves$latitude)
 df_caves$longitude <- as.numeric(df_caves$longitude)
 df_caves <- df_caves[!is.na(df_caves$latitude) & !is.na(df_caves$longitude), ]

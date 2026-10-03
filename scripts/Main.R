@@ -13,7 +13,16 @@ outputs_dir  <- file.path(base_dir, "outputs")
 
 dir.create(outputs_dir, recursive = TRUE)
 
-data_file <- file.path(data_dir, "Table-Data-Base.xlsx")
+data_file <- file.path(
+  tempdir(), 
+  "Table-Data-Base.xlsx"
+  )
+
+download.file(
+  "https://raw.githubusercontent.com/inakiintxaurbe/Pleistocene_Human_Use_Of_Caves/refs/heads/master/data/Table-Data-Base.xlsx",
+  destfile = data_file,
+  mode = "wb"
+)
 
 run_script <- function(script_name, data_path, outputs_dir) {
   script_path <- file.path(scripts_dir, script_name)
