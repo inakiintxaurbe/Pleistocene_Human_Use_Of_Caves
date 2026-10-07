@@ -48,6 +48,18 @@ roman_levels <- c(
   "XII"
 )
 
+evidence_labels <- c(
+  "Rock Art"                  = "Rock art",
+  "Portable Art"              = "Portable art",
+  "Structures / Speleofacts"  = "Structures / speleofacts",
+  "Lithic Industry"           = "Lithic industry",
+  "Modified bones"            = "Modified bones",
+  "Ochre remains"             = "Ochre remains",
+  "Human Remains"             = "Human remains",
+  "Footprints"                = "Footprints",
+  "Fire Remains"              = "Fire remains"
+)
+
 effect_pos <- function(extra="") paste0("Positive (more than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
 effect_neg <- function(extra="") paste0("Negative (less than expected", ifelse(extra=="","",paste0("; ",extra)), ")")
 effect_none <- function() "No clear association"
@@ -1406,3 +1418,185 @@ if (nrow(mat_depth_phase) > 0) {
   )
   dev.off()
 }
+
+# Caves vs Cave-art ----------------------------------------------------------------------------------------------------------------------------------------------
+
+evidence_by_site <- df_bin %>%
+  group_by(Cave) %>%
+  summarise(
+    across(
+      all_of(evidences),
+      ~ as.integer(any(. == 1, na.rm = TRUE))
+    ),
+    .groups = "drop"
+  )
+
+total_sites <- nrow(evidence_by_site)
+
+site_summary <- evidence_by_site %>%
+  summarise(
+    across(
+      all_of(evidences),
+      ~ sum(. == 1, na.rm = TRUE)
+    )
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Evidence",
+    values_to = "Count"
+  ) %>%
+  mutate(
+    Percentage = 100 * Count / total_sites,
+    Evidence_label = evidence_labels[Evidence]
+  ) %>%
+  arrange(Percentage) %>%
+  mutate(
+    Evidence_label = factor(
+      Evidence_label,
+      levels = Evidence_label
+    )
+  )
+
+g_evidence_sites <- ggplot(
+  site_summary,
+  aes(
+    x = Evidence_label,
+    y = Percentage
+  )
+) +
+  geom_col(
+    width = 0.75,
+    fill = "lightblue"
+  ) +
+  geom_text(
+    aes(
+      label = sprintf(
+        "%.1f%% (n = %d)",
+        Percentage,
+        Count
+      )
+    ),
+    hjust = -0.08,
+    size = 3.8
+  ) +
+  coord_flip() +
+  scale_y_continuous(
+    limits = c(0, 110),
+    breaks = seq(0, 100, 20),
+    labels = function(x) paste0(x, "%"),
+    expand = expansion(mult = c(0, 0))
+  ) +
+  labs(
+    x = NULL,
+    y = "% of approved sites",
+    title = "Presence of remains at approved sites",
+    subtitle = paste0(
+      "Presence confirmed by X only; ",
+      total_sites,
+      " unique sites"
+    )
+  ) +
+  theme_minimal(base_size = 12)
+
+
+save_plot(
+  "Evidence_Presence_by_Site.png",
+  g_evidence_sites,
+  w = 10,
+  h = 6
+)
+
+evidence_by_phase <- df_bin %>%
+  filter(
+    !is.na(Cave),
+    !is.na(Phase),
+    trimws(as.character(Phase)) != ""
+  ) %>%
+  group_by(Cave, Phase) %>%
+  summarise(
+    across(
+      all_of(evidences),
+      ~ as.integer(any(. == 1, na.rm = TRUE))
+    ),
+    .groups = "drop"
+  )
+
+total_phases <- nrow(evidence_by_phase)
+
+phase_summary <- evidence_by_phase %>%
+  summarise(
+    across(
+      all_of(evidences),
+      ~ sum(. == 1, na.rm = TRUE)
+    )
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Evidence",
+    values_to = "Count"
+  ) %>%
+  mutate(
+    Percentage = 100 * Count / total_phases,
+    Evidence_label = evidence_labels[Evidence]
+  ) %>%
+  arrange(Percentage) %>%
+  mutate(
+    Evidence_label = factor(
+      Evidence_label,
+      levels = Evidence_label
+    )
+  )
+
+g_evidence_phases <- ggplot(
+  phase_summary,
+  aes(
+    x = Evidence_label,
+    y = Percentage
+  )
+) +
+  geom_col(
+    width = 0.75,
+    fill = "lightblue"
+  ) +
+  geom_text(
+    aes(
+      label = sprintf(
+        "%.1f%% (n = %d)",
+        Percentage,
+        Count
+      )
+    ),
+    hjust = -0.08,
+    size = 3.8
+  ) +
+  coord_flip() +
+  scale_y_continuous(
+    limits = c(0, 110),
+    breaks = seq(0, 100, 20),
+    labels = function(x) paste0(x, "%"),
+    expand = expansion(mult = c(0, 0))
+  ) +
+  labs(
+    x = NULL,
+    y = "% of approved phases",
+    title = "Presence of remains in approved site phases",
+    subtitle = paste0(
+      "Presence confirmed by X only; ",
+      total_phases,
+      " unique site-phase combinations"
+    )
+  ) +
+  theme_minimal(base_size = 12)
+
+save_plot(
+  "Evidence_Presence_by_Phase.png",
+  g_evidence_phases,
+  w = 10,
+  h = 6
+)
+
+cat("\nNumber of unique sites:", total_sites, "\n")
+print(site_summary)
+
+cat("\nNumber of unique site-phase combinations:", total_phases, "\n")
+print(phase_summary)

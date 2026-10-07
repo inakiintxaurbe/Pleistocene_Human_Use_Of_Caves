@@ -967,7 +967,8 @@ culprit_start <- apply(mat[idx_start, , drop = FALSE], 1, function(x) {
 # BALORE ARRAROAK KONTSOLAN BEGIRATU
 message("BALORE ARRAROAK KONTSOLAN BEGIRATU")
 
-table(culprit_start)
-table(culprit_end)
+table_1 <- table(culprit_start)
+table_2 <- table(culprit_end)
 
-
+print(table_1)
+print(table_2)
